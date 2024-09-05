@@ -11,7 +11,22 @@ library(tidyverse)
 cars = read_csv("KBB.csv")
 ```
 
+### 1
 
+Fit a linear model on standardized covariates. Then we would look at the values of the beta coefficients. Positive significant values lead to higher resale values. Negative significant values lead to lower resale values. 
 
+### 2
 
+Other factors could include accident history, number of previous owners, and maintenance history.
 
+### 3
+
+To test if amount decreased in value from additional mileage changes with the make of the car, we would test an interaction effect between mileage and make of car. To find which make holds the best value with more miles we would look at all the interaction effects and determine the most positive one. 
+
+### 4
+
+We would create every combination of covariates given mileage is 15,000 miles (we can do this since the rest of the covariates are discrete), and then predict the value of the car for each combination. Whichever combination has the highest predicted value would be the car that has the highest resale value at 15,000 miles.
+
+### 5
+
+We would create an observation with the given covariates and predict the value by plugging it into the fitted model. 
