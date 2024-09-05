@@ -1,6 +1,6 @@
 ---
 title: "How Much is Your Car Worth?"
-author: "Sam Lee"
+author: "Sam Lee & Evan Miller"
 format: pdf
 ---
 
