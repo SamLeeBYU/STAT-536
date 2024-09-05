@@ -1,0 +1,17 @@
+---
+title: "How Much is Your Car Worth?"
+author: "Sam Lee"
+format: pdf
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+library(tidyverse)
+
+cars = read_csv("KBB.csv")
+```
+
+
+
+
+
