@@ -9,9 +9,37 @@ knitr::opts_chunk$set(echo = F)
 library(tidyverse)
 
 cars = read_csv("KBB.csv")
+
+covariates = colnames(cars)[2:length(colnames(cars))]
+
+model = lm(Price ~ ., data = cars)
 ```
 
 
+```{r}
+combinations = expand.grid(
+  Mileage = 15000,
+  Make = unique(cars$Make),
+  Model = unique(cars$Model),
+  Trim = unique(cars$Type),
+  Cylinder = unique(cars$Liter),
+  Liter = unique(cars$Liter),
+  Doors = unique(cars$Doors),
+  Cruise = unique(cars$Sound),
+  Leather = unique(cars$Leather)
+) %>% mutate(
+  Make = as.factor(Make),
+  Model = as.factor(Model),
+  Trim = as.factor(Trim),
+  Cylinder = as.factor(Cylinder),
+  Liter = as.factor(Liter),
+  Doors = as.factor(Doors),
+  Cruise = as.factor(Cruise),
+  Leather = as.factor(Leather)
+)
 
+y.hat <- predict(model, new_data=combinations)
 
+combinations[which(y.hat == max(y.hat)),]
+```
 
