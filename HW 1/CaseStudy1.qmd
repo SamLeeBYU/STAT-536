@@ -31,7 +31,7 @@ To test if amount decreased in value from additional mileage changes with the ma
 
 We would create every combination of covariates given mileage is 15,000 miles (we can do this since the rest of the covariates are discrete), and then predict the value of the car for each combination. Whichever combination has the highest predicted value would be the car that has the highest resale value at 15,000 miles.
 
-```{r}
+```{r combinations}
 combinations = expand.grid(
   Mileage = 15000,
   Make = unique(cars$Make),
@@ -55,9 +55,9 @@ combinations = expand.grid(
 
 y.hat <- predict(model, new_data=combinations)
 
-combinations[which(y.hat == max(y.hat)),]
+#combinations[which(y.hat == max(y.hat)),]
 ```
 
 ### 5
 
-We would create an observation with the given covariates and predict the value by plugging it into the fitted model. 
+We would create an predicted observation with the given covariates and predict the value by plugging it into the fitted model and accompany the observation with the given 95% confidence interval (an approximation for the measuring the uncertainty). 
