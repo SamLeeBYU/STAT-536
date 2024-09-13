@@ -104,7 +104,7 @@ x.bar <- mean(cars$Mileage, na.rm=T)
 standardize <- function(v){
   (v-mean(v, na.rm=T))/sd(v, na.rm=T)
 }
-cars <- cars %>% mutate(
+cars2 <- cars %>% mutate(
   Mileage = standardize(Mileage)
 )
 model <- lm(Price ~ Mileage + Model + Trim + Sound + Leather, data=cars)
@@ -146,7 +146,7 @@ combinations = expand.grid(
   Sound = unique(cars$Sound)
 )
 
-y.hat <- predict(model, new_data=combinations)
+y.hat <- predict.lm(model, newdata=combinations)
 
 combinations[which(y.hat == max(y.hat)),]
 ```
