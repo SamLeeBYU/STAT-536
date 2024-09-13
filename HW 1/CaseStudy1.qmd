@@ -9,7 +9,9 @@ knitr::opts_chunk$set(echo = F)
 library(tidyverse)
 
 cars = read_csv("KBB.csv") %>% mutate(
-  Price = log(Price)
+  Price = log(Price),
+  Sound = as.factor(Sound),
+  Leather = as.factor(Leather)
 )
 
 covariates = colnames(cars)[2:length(colnames(cars))]
@@ -97,10 +99,25 @@ mean(RPMSE)
 mean(RPMSE.2)
 
 ## Choose BIC because AIC RPMSE is marginally better and BIC is simpler
-
+s <- sd(cars$Mileage, na.rm=T)
+x.bar <- mean(cars$Mileage, na.rm=T)
+standardize <- function(v){
+  (v-mean(v, na.rm=T))/sd(v, na.rm=T)
+}
+cars <- cars %>% mutate(
+  Mileage = standardize(Mileage)
+)
+model <- lm(Price ~ Mileage + Model + Trim + Sound + Leather, data=cars)
 ```
 
 ### 1
+
+```{r echo=F}
+coefficients = data.frame(
+  rank = 1:length(coef(model)),
+  x = sort(coef(model))
+)
+```
 
 Fit a linear model on standardized covariates. Then we would look at the values of the beta coefficients. Positive significant values lead to higher resale values. Negative significant values lead to lower resale values. 
 
@@ -110,6 +127,10 @@ Other factors could include accident history, number of previous owners, and mai
 
 ### 3
 
+```{r}
+summary(model.full)
+```
+
 To test if amount decreased in value from additional mileage changes with the make of the car, we would test an interaction effect between mileage and make of car. To find which make holds the best value with more miles we would look at all the interaction effects and determine the most positive one. 
 
 ### 4
@@ -118,31 +139,31 @@ We would create every combination of covariates given mileage is 15,000 miles (w
 
 ```{r combinations}
 combinations = expand.grid(
-  Mileage = 15000,
-  Make = unique(cars$Make),
+  Mileage = (15000-x.bar)/s,
   Model = unique(cars$Model),
-  Trim = unique(cars$Type),
-  Cylinder = unique(cars$Liter),
-  Liter = unique(cars$Liter),
-  Doors = unique(cars$Doors),
-  Cruise = unique(cars$Sound),
-  Leather = unique(cars$Leather)
-) %>% mutate(
-  Make = as.factor(Make),
-  Model = as.factor(Model),
-  Trim = as.factor(Trim),
-  Cylinder = as.factor(Cylinder),
-  Liter = as.factor(Liter),
-  Doors = as.factor(Doors),
-  Cruise = as.factor(Cruise),
-  Leather = as.factor(Leather)
+  Trim = unique(cars$Trim),
+  Leather = unique(cars$Leather),
+  Sound = unique(cars$Sound)
 )
 
 y.hat <- predict(model, new_data=combinations)
 
-#combinations[which(y.hat == max(y.hat)),]
+combinations[which(y.hat == max(y.hat)),]
 ```
 
 ### 5
+
+```{r}
+car <- data.frame(
+  Mileage = (17000-x.bar)/s,
+  Model = unique(cars$Model)[6],
+  Trim = unique(cars$Trim)[1],
+  Leather = unique(cars$Leather)[1],
+  Sound = factor(1, levels=c(0,1))
+)
+
+y.hat <- predict.lm(model, newdata=car, interval="prediction")
+exp(y.hat)
+```
 
 We would create an predicted observation with the given covariates and predict the value by plugging it into the fitted model and accompany the observation with the given 95% confidence interval (an approximation for the measuring the uncertainty). 
