@@ -29,6 +29,75 @@ plot(model.bic)
 plot(model.forward)
 
 
+n.cv <- 1000 #Number of CV studies we’ll run
+bias <- rep(NA, n.cv) #n.cv empty biases (one for each CV)
+n.test <- 10
+RPMSE <- rep(NA, n.cv)#How big my test set is
+coverage <- rep(NA, n.cv)
+pi_width <- rep(NA, n.cv)
+for(i in 1:n.cv){
+  # Choose which obs. to put in test set
+  test.obs <- sample(1:nrow(cars), n.test)
+  
+  # Split data into test and training sets
+  test.set <- cars[test.obs,]
+  train.set <- cars[-test.obs,]
+  
+  # Using training data to fit a (possibly transformed) model
+  train.lm <- lm(Price ~ Mileage + Model + Trim + Sound + Leather, data=train.set)
+  
+  # Predict test set
+  test.preds <- predict.lm(train.lm, newdata=test.set, interval="prediction")
+  #If needed, untransform here
+  
+  # Calculate bias
+  bias[i] <- mean(test.preds[,1]-test.set$Price)
+  # Calculate RPMSE, this is left for you to figure out on your own
+  
+  RPMSE[i] <- (test.preds[,1]-test.set$Price)^2 %>% mean() %>% sqrt()
+  
+  coverage[i] <- mean((test.preds[,2] < test.set$Price) & (test.preds[,3]>test.set$Price))
+  pi_width[i] <- mean(test.preds[,3] - test.preds[,2])
+}
+
+mean(RPMSE)
+
+n.cv <- 1000 #Number of CV studies we’ll run
+bias.2 <- rep(NA, n.cv) #n.cv empty biases (one for each CV)
+n.test <- 10
+RPMSE.2 <- rep(NA, n.cv)#How big my test set is
+coverage.2 <- rep(NA, n.cv)
+pi_width.2 <- rep(NA, n.cv)
+for(i in 1:n.cv){
+  # Choose which obs. to put in test set
+  test.obs <- sample(1:nrow(cars), n.test)
+  
+  # Split data into test and training sets
+  test.set <- cars[test.obs,]
+  train.set <- cars[-test.obs,]
+  
+  # Using training data to fit a (possibly transformed) model
+  train.lm <- lm(Price ~ Model + Mileage + Trim + Leather + Sound + Cruise, data=train.set)
+  
+  # Predict test set
+  test.preds <- predict.lm(train.lm, newdata=test.set, interval="prediction")
+  #If needed, untransform here
+  
+  # Calculate bias
+  bias.2[i] <- mean(test.preds[,1]-test.set$Price)
+  # Calculate RPMSE, this is left for you to figure out on your own
+  
+  RPMSE.2[i] <- (test.preds[,1]-test.set$Price)^2 %>% mean() %>% sqrt()
+  
+  coverage.2[i] <- mean((test.preds[,2] < test.set$Price) & (test.preds[,3]>test.set$Price))
+  pi_width.2[i] <- mean(test.preds[,3] - test.preds[,2])
+}
+
+mean(RPMSE)
+mean(RPMSE.2)
+
+## Choose BIC because AIC RPMSE is marginally better and BIC is simpler
+
 ```
 
 ### 1
