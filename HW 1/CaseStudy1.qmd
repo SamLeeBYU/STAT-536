@@ -8,11 +8,27 @@ format: pdf
 knitr::opts_chunk$set(echo = F)
 library(tidyverse)
 
-cars = read_csv("KBB.csv")
+cars = read_csv("KBB.csv") %>% mutate(
+  Price = log(Price)
+)
 
 covariates = colnames(cars)[2:length(colnames(cars))]
 
-model = lm(Price ~ ., data = cars)
+model.full <- lm(Price ~ Mileage*Make + ., data=cars)
+model.null <- lm(Price ~ 1, data=cars)
+
+n <- nrow(cars)
+
+model.forward <- step(model.null, scope = list(lower = model.null, upper = model.full), 
+                       direction = "forward")
+
+model.bic <- step(model.full, direction = "both",
+                       k = log(n))
+
+plot(model.bic)
+plot(model.forward)
+
+
 ```
 
 ### 1
