@@ -146,9 +146,9 @@ combinations = expand.grid(
   Sound = unique(cars$Sound)
 )
 
-y.hat <- predict(model, new_data=combinations)
+y.hat <- predict.lm(model, newdata=combinations)
 
-combinations[which(y.hat == max(y.hat)),]
+combinations[which(y.hat == max(y.hat, na.rm=T)),]
 ```
 
 ### 5
