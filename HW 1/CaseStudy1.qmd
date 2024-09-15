@@ -8,6 +8,8 @@ format: pdf
 knitr::opts_chunk$set(echo = F)
 library(tidyverse)
 
+set.seed(536)
+
 cars = read_csv("KBB.csv") %>% mutate(
   Price = log(Price),
   Sound = as.factor(Sound),
@@ -33,7 +35,7 @@ plot(model.forward)
 
 n.cv <- 1000 #Number of CV studies we’ll run
 bias <- rep(NA, n.cv) #n.cv empty biases (one for each CV)
-n.test <- 10
+n.test <- round(0.2*nrow(cars)) #Test 20% of the data
 RPMSE <- rep(NA, n.cv)#How big my test set is
 coverage <- rep(NA, n.cv)
 pi_width <- rep(NA, n.cv)
@@ -44,6 +46,24 @@ for(i in 1:n.cv){
   # Split data into test and training sets
   test.set <- cars[test.obs,]
   train.set <- cars[-test.obs,]
+  
+  #We need all levels of our cateogrical variables in our training set
+  all.levels <- sapply(2:length(covariates), function(k){
+    nrow(unique(train.set[,covariates[k]])) == nrow(unique(cars[,covariates[k]]))
+  }) |> all()
+  while(!all.levels){
+    # Choose which obs. to put in test set
+    test.obs <- sample(1:nrow(cars), n.test)
+    
+    # Split data into test and training sets
+    test.set <- cars[test.obs,]
+    train.set <- cars[-test.obs,]
+    
+    all.levels <- sapply(2:length(covariates), function(k){
+      nrow(unique(train.set[,covariates[k]])) == nrow(unique(cars[,covariates[k]]))
+    }) |> all()
+  }
+  
   
   # Using training data to fit a (possibly transformed) model
   train.lm <- lm(Price ~ Mileage + Model + Trim + Sound + Leather, data=train.set)
@@ -62,11 +82,8 @@ for(i in 1:n.cv){
   pi_width[i] <- mean(test.preds[,3] - test.preds[,2])
 }
 
-mean(RPMSE)
-
 n.cv <- 1000 #Number of CV studies we’ll run
 bias.2 <- rep(NA, n.cv) #n.cv empty biases (one for each CV)
-n.test <- 10
 RPMSE.2 <- rep(NA, n.cv)#How big my test set is
 coverage.2 <- rep(NA, n.cv)
 pi_width.2 <- rep(NA, n.cv)
@@ -77,6 +94,23 @@ for(i in 1:n.cv){
   # Split data into test and training sets
   test.set <- cars[test.obs,]
   train.set <- cars[-test.obs,]
+  
+  #We need all levels of our cateogrical variables in our training set
+  all.levels <- sapply(2:length(covariates), function(k){
+    nrow(unique(train.set[,covariates[k]])) == nrow(unique(cars[,covariates[k]]))
+  }) |> all()
+  while(!all.levels){
+    # Choose which obs. to put in test set
+    test.obs <- sample(1:nrow(cars), n.test)
+    
+    # Split data into test and training sets
+    test.set <- cars[test.obs,]
+    train.set <- cars[-test.obs,]
+    
+    all.levels <- sapply(2:length(covariates), function(k){
+      nrow(unique(train.set[,covariates[k]])) == nrow(unique(cars[,covariates[k]]))
+    }) |> all()
+  }
   
   # Using training data to fit a (possibly transformed) model
   train.lm <- lm(Price ~ Model + Mileage + Trim + Leather + Sound + Cruise, data=train.set)
@@ -167,3 +201,12 @@ exp(y.hat)
 ```
 
 We would create an predicted observation with the given covariates and predict the value by plugging it into the fitted model and accompany the observation with the given 95% confidence interval (an approximation for the measuring the uncertainty). 
+
+
+## Methodology
+
+### Model Evaluation
+
+We used a Monte Carlo cross-validation techinque with a 1,000 interations on each model, evaluating the model against 20% of out-of-sample observations each iteration. 
+
+## Results
