@@ -7,6 +7,8 @@ format: pdf
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F)
 library(tidyverse)
+library(kableExtra)
+library(scales)
 
 set.seed(536)
 
@@ -132,7 +134,7 @@ for(i in 1:n.cv){
 mean(RPMSE)
 mean(RPMSE.2)
 
-## Choose BIC because AIC RPMSE is marginally better and BIC is simpler
+## Choose BIC because BIC RPMSE is marginally better and BIC is more parsimonious
 s <- sd(cars$Mileage, na.rm=T)
 x.bar <- mean(cars$Mileage, na.rm=T)
 standardize <- function(v){
@@ -144,34 +146,95 @@ cars2 <- cars %>% mutate(
 model <- lm(Price ~ Mileage + Model + Trim + Sound + Leather, data=cars)
 ```
 
-### 1
+## Methodology
 
+### Model Evaluation
+
+In this section, we will propose the statistical model we arrived at and describe the methods we used to reach our conclusion.
+
+For a given car $i$, we propose that the resale value of the car can best (and most simply) be approximated by the following linear model[^1]:
+
+[^1]: Note that on the categorical variables (Model and Trim) we omitted the first alphanumerically ordered factor to preserve the rank of the linear model (e.g. the model 9-2X AWD was omitted as a covariate in the set of Model dummies and the Aero Conv 2D was omitted as a covariate in the set of Model indicator dummies.) We also note that in this regression, the Mileage covariate was standardized by subtracting the mean and dividing by its standard deviation.
+
+$$
+ln(\text{Price}_i) = \beta_0 + \beta_1\text{Mileage}_i + \beta_2\mathbb{1}(\text{Sound} = 1) + \beta_3\mathbb{1}(\text{Leather}_i = 1) +
+$$
+$$\sum_{j=\text{9-3}}^{XLR-V8}\beta_j\mathbb{1}(\text{Model}_i = j) + \sum_{k=\text{Aero Sedan 4D}}^{\text{SVM Sedan 4D}}\beta_k\mathbb{1}(\text{Trim}_i=k)+\epsilon_i
+$$
+$$
+\epsilon_i \overset{\text{iid}}{\sim} \mathcal{N}(0,\sigma^2)
+$$
+
+We used a Monte Carlo cross-validation techinque with a 1,000 interations on each model, evaluating the model against 20% of out-of-sample observations each iteration. The root-mean-square error for the forward selection linear model set with AIC as a model evalutation metric was approximately $0.02624$, while our selected linear model where both forward and backward variable selection were enabled with BIC as the model evaluation metric arrived at $0.02623$ for the root-mean-square error. While our BIC model was marginally better, we chose this model not out its performance (as it achieved nearly the same level of fit) but out of a better parsimonious fit.
+
+We assess the in-sample fit of our model through the adjusted $R^2$ stastic. With the sample data, the adjusted $R^2$ statistic is $0.9963$. Given that nearly all of the variance in the data can be explained through all model, we believe there may be some economic factors dictating the resale price. If certain models exist in perfectly competitive markets (or nearly perfectly competitive markets) this could shrink the variance of the observed prices to zero. Alternatively, if particular price controls have been imposed in the respective supply chain markets such as on certain leathers, or materials involved in sound system, then our model may be highly sensitive to the economic circumstances of from which the data was sampled---that is, if the economic circumstances change, our model may yield an improper fit. Be it as it may, the model as it stands provides as a robust and interpretable tool for predicting resale prices of cars in this market. We log-transformed price, as it typically done in financial and economic analysis; this improved our model assumptions and our confidence that we could use this in predicting resale prices.
+
+### Model Assumptions
+
+To use this model as a valid tool for prediction, we invoke a few distributional assumptions that we pose in this section and evaluate for our proposed model.
+
+```{r fig.align='center', fig.height = 2.5, fig.width = 8, echo=FALSE}
+par(mfrow = c(1, 4), cex.main=0.5, mai = c(0,0,0,0), oma=c(0,0,0,0), mar=c(0,0,0,0), pin=c(1,1), cex=0.5)
+plot(model)
+```
+
+We hold that the assumption of linearity is met as the the structure of the residuals with respect to the fitted values do not show any structure. We also assert that our distributional assumption that our error term ($\epsilon$) is Normally distributed as shown by the QQ plot. While there are few outliers in the tails[^2] (see Table 1), we conclude that the heteroskedasticity is largely not an issue, although future analyses may wish model $\epsilon$ through a more robust form.
+
+[^2]: After investigation, we do not find these outliers problematic. These observations contain unique combinations of covariates that average out the effects.
 ```{r echo=F}
-coefficients = data.frame(
-  rank = 1:length(coef(model)),
-  x = sort(coef(model))
-)
+covariates <- c("Price", "Mileage", "Model", "Trim", "Sound", "Leather")
+kable(cars[c(605, 650, 742),covariates] |> mutate(
+  Price = exp(Price) |> round(2)
+), caption = "Problematic Observations")
 ```
 
-Fit a linear model on standardized covariates. Then we would look at the values of the beta coefficients. Positive significant values lead to higher resale values. Negative significant values lead to lower resale values. 
+## Results
 
-### 2
+Using our model that we established in the preceding section, we will proceed to answer our research questions.
 
-Other factors could include accident history, number of previous owners, and maintenance history.
+The most significant factors that contribute to the predicted resale price of a given car are summarized below in Table 2. Due to the nature of our saturated regression---by virtue of including every possible dummy variable for every categorical variable---it is not surprising that the most significant factors are from these sets of indicator variables.
 
-### 3
+\begin{table}[ht]
+\centering
+\begin{tabular}{l c c}
+\hline
+\textbf{Significant Factor} & \textbf{Estimate} & \textbf{95\% Confidence Interval} \\
+\hline
+\multicolumn{3}{l}{\textbf{Lowest Coefficients}} \\
+Model = AVEO          & -1.0497 & (-1.0928, -1.0066) \\
+Model = Cavalier      & -0.8975 & (-0.9420, -0.8530) \\
+Model = Sunfire       & -0.8486 & (-0.8917, -0.8055) \\
+Model = Ion           & -0.8361 & (-0.8786, -0.7936) \\
+Model = Cobalt        & -0.8119 & (-0.8554, -0.7684) \\
+\hline
+\multicolumn{3}{l}{\textbf{Highest Coefficients}} \\
+Model = XLR-V8        & 0.7936  & (0.7521, 0.8351)  \\
+Model = CST-V         & 0.3994  & (0.3615, 0.4373)  \\
+Trim = SS Sedan 4D    & 0.3792  & (0.3419, 0.4165)  \\
+Trim = SS Coupe 2D    & 0.3557  & (0.3187, 0.3927)  \\
+Model = STS-V8        & 0.3446  & (0.3083, 0.3809)  \\
+\hline
+\multicolumn{3}{l}{\textbf{Intercept}} \\
+Intercept           & 10.3813 & (10.0028, 10.7598) \\
+\hline
+\end{tabular}
+\caption{Coefficients and 95\% Confidence Intervals for the most significant factors}
+\label{tab:coefficients}
+\end{table}
 
-```{r}
-summary(model.full)
-```
+As noted earlier, the adjusted $R^2$ statistic is remarkably high (and perhaps conspicuously so due to idiosyncratic economic reasons). Nonetheless we would attribute any of the noise in our model and perhaps issue a word of caution that this model stands precariously on the verge of robustness and predictability: We do not have any measure of maintenance use, history of previous ownership, nor accident history. These unobserved covariates would bias our coefficients if they are, in fact, correlated with the current covariates we have included in the model. Hence we strongly caution against interpreting our results as causal.
 
-To test if amount decreased in value from additional mileage changes with the make of the car, we would test an interaction effect between mileage and make of car. To find which make holds the best value with more miles we would look at all the interaction effects and determine the most positive one. 
+### Model Predictions
 
-### 4
+Our model concludes (and significantly so) that as mileage increases, price decreases[^3]. However, both stepwise models failed to include an interaction term between mileage and the categorical variable and make. Upon investigation, we found that none of the interaction terms between mileage and make in the full linear model were significant. Hence, we conclude that the amount of decrease in value does not significantly depend on the make of the car.
 
-We would create every combination of covariates given mileage is 15,000 miles (we can do this since the rest of the covariates are discrete), and then predict the value of the car for each combination. Whichever combination has the highest predicted value would be the car that has the highest resale value at 15,000 miles.
+[^3]: Our estimated coefficient on (standardized) mileage was −0.008150159 (−0.0083695,−0.007931) for every 1,000 miles.
 
-```{r combinations}
+Using our model we predict that the following car (limited to our model's specifications[^4]) will have the highest resale value at 15,000 miles:
+
+[^4]: It should be noted that due to the nature of how we selected our model, beyond these specifications, the resale model should be fairly robust to any another modifications (i.e. the make of the car).
+
+```{r echo=F, warning=F, combinations}
 combinations = expand.grid(
   Mileage = (15000-x.bar)/s,
   Model = unique(cars$Model),
@@ -182,12 +245,16 @@ combinations = expand.grid(
 
 y.hat <- predict.lm(model, newdata=combinations)
 
-combinations[which(y.hat == max(y.hat, na.rm=T)),]
+car.optimal <- combinations[which(y.hat == max(y.hat, na.rm=T)),] %>%
+  dplyr::select(-Mileage)
+
+rownames(car.optimal) <- NULL
+
+car.optimal %>%
+  kable(caption="Highest value car with mileage=15,000 miles")
 ```
 
-### 5
-
-```{r}
+```{r echo=F}
 car <- data.frame(
   Mileage = (17000-x.bar)/s,
   Model = unique(cars$Model)[6],
@@ -197,16 +264,6 @@ car <- data.frame(
 )
 
 y.hat <- predict.lm(model, newdata=car, interval="prediction")
-exp(y.hat)
+fit <- dollar(exp(y.hat))
 ```
-
-We would create an predicted observation with the given covariates and predict the value by plugging it into the fitted model and accompany the observation with the given 95% confidence interval (an approximation for the measuring the uncertainty). 
-
-
-## Methodology
-
-### Model Evaluation
-
-We used a Monte Carlo cross-validation techinque with a 1,000 interations on each model, evaluating the model against 20% of out-of-sample observations each iteration. 
-
-## Results
+For a Caillac CTS 4d Sedan with 17,000 miles, 6 cylinder, 2.8 liter engine, cruise control, upgraded speakers, and leather seats, we performed a 95% prediction interval using our model. Our model predicts that this car will resale at `r fit[1]` (`r fit[2]`, `r fit[3]`).
