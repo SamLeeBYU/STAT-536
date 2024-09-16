@@ -2,6 +2,11 @@
 title: "How Much is Your Car Worth?"
 author: "Sam Lee & Evan Miller"
 format: pdf
+geometry: 
+  - top=1in
+  - left=1in
+  - right=1in
+  - bottom=1in
 ---
 
 ```{r setup, include=FALSE, eval = TRUE, message = FALSE, warning = FALSE}
@@ -153,9 +158,9 @@ The resale value of a car is an important factor to consider when buying a car. 
 
 ## Introduction
 
-Kelley Blue Book is one of the most well known and trusted car evaluation resources. The Kelley Blue Book value of a car is widely used by consumers and dealerships to determine the value of a car. In this report, we will use data from Kelley Blue Book to try and understand better what factors contribute to the resale value KBB sets, and in what way. By fitting a model, we will also be able to predict the resale value of a car given certain characteristics. Before fitting a model, there are a few issues in the dataset that need to be accounted for. As you can see in the histogram below, the resale price of the cars is right-skewed. To account for this, we will log-transform the price. We also found some correlation between some of the predictor variables in the data. For example, as you can see from the scatterplot below, the number of cylinders in the car is highly correlated with the engine size. To account for this issue, we will use variable selection techniques before fitting our model to make sure there aren't pairs of highly correlated predictors in the model.
+The Kelley Blue Book value of a car is widely used by consumers and dealerships to determine the value of a car. In this report, we will use data from Kelley Blue Book to try and understand better what factors contribute to the resale value KBB sets, and in what way. By fitting a model, we will also be able to predict the resale value of a car given certain characteristics. Before fitting a model, there are a few issues in the dataset that need to be accounted for. As you can see in the histogram below, the resale price of the cars is right-skewed. To account for this, we will log-transform the price. We also found some correlation between some of the predictor variables in the data. For example, as you can see from the scatterplot below, the number of cylinders in the car is highly correlated with the engine size. To account for this issue, we will use variable selection techniques before fitting our model to make sure there aren't pairs of highly correlated predictors in the model.
 
-```{r fig.align='center', fig.height = 2.5, fig.width = 8, warning = FALSE, message=F}
+```{r fig.align='center', fig.height = 2, fig.width = 8, warning = FALSE, message=F}
 p1 <- ggplot(data = cars, aes(x = exp(Price))) +
   geom_histogram(binwidth = 2000) +
   labs(title = "Histogram of Resale Price", x = "Resale Price", y = "Frequency")+
@@ -166,7 +171,7 @@ p1 <- ggplot(data = cars, aes(x = exp(Price))) +
 log.p1 <- ggplot(data = cars, aes(x = Price)) +
   geom_histogram(bins=30) +
   labs(title = "Histogram of Logged Resale Price", x = "Logged Resale Price", y = "Frequency",
-       caption="The logged-transformed price approaches\nNormality more so than the original right\nskewed distribution."
+       caption="The logged-transformed price approaches\nNormality"
        )+
   theme(
     plot.title = element_text(size = 10)
@@ -185,9 +190,9 @@ p1 + log.p1 + p2
 
 ```
 
-## Methodology
 
-### Proposed Methods
+
+## Methodology
 
 #### Method 1
 
@@ -199,10 +204,9 @@ The second model we proposed was a model obtained by performing BIC two-way sele
 
 ### Model Evaluation
 
-In this section, we will propose the statistical model we arrived at and describe the methods we used to reach our conclusion.
+For a given car $i$, we propose that the resale value of the car can best (and most simply) be approximated by the following linear[^0] model[^1]:
 
-For a given car $i$, we propose that the resale value of the car can best (and most simply) be approximated by the following linear model[^1]:
-
+[^0]: The set of linear coefficients of interest are vector of $\beta$ coefficients. We include a vector of idiosyncratic error terms, denoted in the model as $\epsilon$.
 [^1]: Note that on the categorical variables (Model and Trim) we omitted the first alphanumerically ordered factor to preserve the rank of the linear model (e.g. the model 9-2X AWD was omitted as a covariate in the set of Model dummies and the Aero Conv 2D was omitted as a covariate in the set of Model indicator dummies.) We also note that in this regression, the Mileage covariate was standardized by subtracting the mean and dividing by its standard deviation.
 
 $$
@@ -229,16 +233,14 @@ We hold that the assumption of linearity is met as the the structure of the resi
 
 [^2]: After investigation, we do not find these outliers problematic. These observations contain unique combinations of covariates that average out the effects.
 
-    ```{r echo=F}
-    covariates <- c("Price", "Mileage", "Model", "Trim", "Sound", "Leather")
-    kable(cars[c(605, 650, 742),covariates] |> mutate(
-      Price = exp(Price) |> dollar()
-    ), caption = "Problematic Observations")
-    ```
+```{r echo=F}
+covariates <- c("Price", "Mileage", "Model", "Trim", "Sound", "Leather")
+kable(cars[c(605, 650, 742),covariates] |> mutate(
+  Price = exp(Price) |> dollar()
+), caption = "Problematic Observations")
+```
 
 ## Results
-
-Using our model that we established in the preceding section, we will proceed to answer our research questions.
 
 The most significant factors that contribute to the predicted resale price of a given car are summarized below in Table 2. Due to the nature of our saturated regression---by virtue of including every possible dummy variable for every categorical variable---it is not surprising that the most significant factors are from these sets of indicator variables.
 
