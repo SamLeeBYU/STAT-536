@@ -4,11 +4,12 @@ author: "Sam Lee & Evan Miller"
 format: pdf
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, eval = TRUE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = F)
 library(tidyverse)
 library(kableExtra)
 library(scales)
+library(patchwork)
 
 set.seed(536)
 
@@ -146,7 +147,34 @@ cars2 <- cars %>% mutate(
 model <- lm(Price ~ Mileage + Model + Trim + Sound + Leather, data=cars2)
 ```
 
+## Introduction
+
+Kelley Blue Book is one of the most well known and trusted car evaluation resources. The Kelley Blue Book value of a car is widely used by consumers and dealerships to determine the value of a car. In this report, we will use data from Kelley Blue Book to try and understand better what factors contribute to the resale value KBB sets, and in what way. By fitting a model, we will also be able to predict the resale value of a car given certain characteristics. Before fitting a model, there are a few issues in the dataset that need to be accounted for. As you can see in the histogram below, the resale price of the cars is right-skewed. To account for this, we will log-transform the price. We also found some correlation between some of the predictor variables in the data. For example, as you can see from the scatterplot below, the number of cylinders in the car is highly correlated with the engine size. To account for this issue, we will use variable selection techniques before fitting our model to make sure there aren't pairs of highly correlated predictors in the model.
+
+```{r fig.align='center', fig.height = 2.5, fig.width = 8, warning = FALSE}
+p1 <- ggplot(data = cars, aes(x = exp(Price))) +
+  geom_histogram(binwidth = 2000) +
+  labs(title = "Histogram of Resale Price", x = "Resale Price", y = "Frequency")
+
+p2 <- ggplot(data = cars, aes(x = Cylinder, y = Liter)) +
+  geom_point() +
+  labs(title = "Cylinder vs. Liter", x = "Cylinder", y = "Liter")
+
+p1 + p2
+
+```
+
 ## Methodology
+
+### Proposed Methods
+
+#### Method 1
+
+The first model we proposed was a model obtained by performing AIC forward selection on the log price of a car. Modelling the log price of the car instead of the price of the car addresses well the issue of skewness of the distribution of prices as described above. Forward selection AIC on log price gave us a model with Model, Mileage, Trim, Leather, Sound, and Cruise as predictors. This process accounted for the issue of correlation between predictors also described above. 
+
+#### Method 2
+
+The second model we proposed was a model obtained by performing BIC two-way selection on the log price of a car. This method accounts for the issues in the data the same way forward AIC does, but BIC penalizes the inclusion of predictors a little more than AIC and therefore results in a more parsimonious model. The BIC model included Mileage, Model, Leather, Sound, and Trim as predictors. In both of these models we assume linearity between the predictors and the log price of the car, independence between observations, normality in the residuals, and equal variance of the residuals. These assumptions will be evaluated in more detail in the model evaluation section.
 
 ### Model Evaluation
 
@@ -158,16 +186,14 @@ For a given car $i$, we propose that the resale value of the car can best (and m
 
 $$
 ln(\text{Price}_i) = \beta_0 + \beta_1\text{Mileage}_i + \beta_2\mathbb{1}(\text{Sound} = 1) + \beta_3\mathbb{1}(\text{Leather}_i = 1) +
-$$
-$$\sum_{j=\text{9-3}}^{XLR-V8}\beta_j\mathbb{1}(\text{Model}_i = j) + \sum_{k=\text{Aero Sedan 4D}}^{\text{SVM Sedan 4D}}\beta_k\mathbb{1}(\text{Trim}_i=k)+\epsilon_i
-$$
-$$
+$$ $$\sum_{j=\text{9-3}}^{XLR-V8}\beta_j\mathbb{1}(\text{Model}_i = j) + \sum_{k=\text{Aero Sedan 4D}}^{\text{SVM Sedan 4D}}\beta_k\mathbb{1}(\text{Trim}_i=k)+\epsilon_i
+$$ $$
 \epsilon_i \overset{\text{iid}}{\sim} \mathcal{N}(0,\sigma^2)
 $$
 
-We used a Monte Carlo cross-validation techinque with a 1,000 interations on each model, evaluating the model against 20% of out-of-sample observations each iteration. The root-mean-square error for the forward selection linear model set with AIC as a model evalutation metric was approximately $0.02624$, while our selected linear model where both forward and backward variable selection were enabled with BIC as the model evaluation metric arrived at $0.02623$ for the root-mean-square error. While our BIC model was marginally better, we chose this model not out its performance (as it achieved nearly the same level of fit) but out of a better parsimonious fit.
+We used a Monte Carlo cross-validation techinque with a 1,000 interations on each model, evaluating the model against 20% of out-of-sample observations each iteration. The root-mean-square error for the forward selection linear model set with AIC as a model evalutation metric was approximately $0.02624$, while our selected linear model where both forward and backward variable selection were enabled with BIC as the model evaluation metric arrived at $0.02623$ for the root-mean-square error. While our BIC model was marginally better, we chose this model not out of its performance (as it achieved nearly the same level of fit) but out of a better parsimonious fit.
 
-We assess the in-sample fit of our model through the adjusted $R^2$ stastic. With the sample data, the adjusted $R^2$ statistic is $0.9963$. Given that nearly all of the variance in the data can be explained through all model, we believe there may be some economic factors dictating the resale price. If certain models exist in perfectly competitive markets (or nearly perfectly competitive markets) this could shrink the variance of the observed prices to zero. Alternatively, if particular price controls have been imposed in the respective supply chain markets such as on certain leathers, or materials involved in sound system, then our model may be highly sensitive to the economic circumstances of from which the data was sampled---that is, if the economic circumstances change, our model may yield an improper fit. Be it as it may, the model as it stands provides as a robust and interpretable tool for predicting resale prices of cars in this market. We log-transformed price, as it typically done in financial and economic analysis; this improved our model assumptions and our confidence that we could use this in predicting resale prices.
+We assess the in-sample fit of our model through the adjusted $R^2$ statistic. With the sample data, the adjusted $R^2$ statistic is $0.9963$. Given that nearly all of the variance in the data can be explained through all model, we believe there may be some economic factors dictating the resale price. If certain models exist in perfectly competitive markets (or nearly perfectly competitive markets) this could shrink the variance of the observed prices to zero. Alternatively, if particular price controls have been imposed in the respective supply chain markets such as on certain leathers, or materials involved in sound system, then our model may be highly sensitive to the economic circumstances of from which the data was sampled---that is, if the economic circumstances change, our model may yield an improper fit. Be it as it may, the model as it stands provides as a robust and interpretable tool for predicting resale prices of cars in this market. We log-transformed price, as it typically done in financial and economic analysis; this improved our model assumptions and our confidence that we could use this in predicting resale prices.
 
 ### Model Assumptions
 
@@ -181,12 +207,13 @@ plot(model)
 We hold that the assumption of linearity is met as the the structure of the residuals with respect to the fitted values do not show any structure. We also assert that our distributional assumption that our error term ($\epsilon$) is Normally distributed as shown by the QQ plot. While there are few outliers in the tails[^2] (see Table 1), we conclude that the heteroskedasticity is largely not an issue, although future analyses may wish model $\epsilon$ through a more robust form.
 
 [^2]: After investigation, we do not find these outliers problematic. These observations contain unique combinations of covariates that average out the effects.
-```{r echo=F}
-covariates <- c("Price", "Mileage", "Model", "Trim", "Sound", "Leather")
-kable(cars[c(605, 650, 742),covariates] |> mutate(
-  Price = exp(Price) |> round(2)
-), caption = "Problematic Observations")
-```
+
+    ```{r echo=F}
+    covariates <- c("Price", "Mileage", "Model", "Trim", "Sound", "Leather")
+    kable(cars[c(605, 650, 742),covariates] |> mutate(
+      Price = exp(Price) |> round(2)
+    ), caption = "Problematic Observations")
+    ```
 
 ## Results
 
@@ -194,6 +221,7 @@ Using our model that we established in the preceding section, we will proceed to
 
 The most significant factors that contribute to the predicted resale price of a given car are summarized below in Table 2. Due to the nature of our saturated regression---by virtue of including every possible dummy variable for every categorical variable---it is not surprising that the most significant factors are from these sets of indicator variables.
 
+```{=tex}
 \begin{table}[ht]
 \centering
 \begin{tabular}{l c c}
@@ -221,7 +249,7 @@ Intercept           & 10.3813 & (10.0028, 10.7598) \\
 \caption{Coefficients and 95\% Confidence Intervals for the most significant factors}
 \label{tab:coefficients}
 \end{table}
-
+```
 As noted earlier, the adjusted $R^2$ statistic is remarkably high (and perhaps conspicuously so due to idiosyncratic economic reasons). Nonetheless we would attribute any of the noise in our model and perhaps issue a word of caution that this model stands precariously on the verge of robustness and predictability: We do not have any measure of maintenance use, history of previous ownership, nor accident history. These unobserved covariates would bias our coefficients if they are, in fact, correlated with the current covariates we have included in the model. Hence we strongly caution against interpreting our results as causal.
 
 ### Model Predictions
@@ -266,4 +294,5 @@ car <- data.frame(
 y.hat <- predict.lm(model, newdata=car, interval="prediction")
 fit <- dollar(exp(y.hat))
 ```
+
 For a Caillac CTS 4d Sedan with 17,000 miles, 6 cylinder, 2.8 liter engine, cruise control, upgraded speakers, and leather seats, we performed a 95% prediction interval using our model. Our model predicts that this car will resale at `r fit[1]` (`r fit[2]`, `r fit[3]`).
