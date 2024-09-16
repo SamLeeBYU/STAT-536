@@ -107,7 +107,7 @@ standardize <- function(v){
 cars2 <- cars %>% mutate(
   Mileage = standardize(Mileage)
 )
-model <- lm(Price ~ Mileage + Model + Trim + Sound + Leather, data=cars)
+model <- lm(Price ~ Mileage + Model + Trim + Sound + Leather, data=cars2)
 ```
 
 ### 1
