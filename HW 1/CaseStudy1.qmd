@@ -185,9 +185,9 @@ p1 + log.p1 + p2
 
 ```
 
-## Methodology
+Had we not accounted for these issues in the data, the standard error of our coefficients would have been incorrect and any intervals we calculate would be invalid. 
 
-### Proposed Methods
+## Methodology
 
 #### Method 1
 
@@ -198,8 +198,6 @@ The first model we proposed was a model obtained by performing AIC forward selec
 The second model we proposed was a model obtained by performing BIC two-way selection on the log price of a car. This method accounts for the issues in the data the same way forward AIC does, but BIC penalizes the inclusion of predictors a little more than AIC and therefore results in a more parsimonious model. The BIC model included Mileage, Model, Leather, Sound, and Trim as predictors. In both of these models we assume linearity between the predictors and the log price of the car, independence between observations, normality in the residuals, and equal variance of the residuals. These assumptions will be evaluated in more detail in the model evaluation section.
 
 ### Model Evaluation
-
-In this section, we will propose the statistical model we arrived at and describe the methods we used to reach our conclusion.
 
 For a given car $i$, we propose that the resale value of the car can best (and most simply) be approximated by the following linear model[^1]:
 
