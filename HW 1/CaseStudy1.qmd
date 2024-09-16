@@ -147,6 +147,10 @@ cars2 <- cars %>% mutate(
 model <- lm(Price ~ Mileage + Model + Trim + Sound + Leather, data=cars2)
 ```
 
+## Abstract
+
+The resale value of a car is an important factor to consider when buying a car. In this report, we use data from Kelley Blue Book to try and understand what factors contribute to the resale value KBB sets, and in what way. We fit multiple linear regression on the log-transformed price of a car to predict the resale value of a car given the mileage, and other key characteristics of a car. We found that the most significant factors that contribute to the predicted price of a given car are Mileage, Model, Leather, Sound, and Trim, that the model is highly predictive of the resale price of a car, and that there isn't a significant difference in the effect of mileage on the price of a car between different makes.
+
 ## Introduction
 
 Kelley Blue Book is one of the most well known and trusted car evaluation resources. The Kelley Blue Book value of a car is widely used by consumers and dealerships to determine the value of a car. In this report, we will use data from Kelley Blue Book to try and understand better what factors contribute to the resale value KBB sets, and in what way. By fitting a model, we will also be able to predict the resale value of a car given certain characteristics. Before fitting a model, there are a few issues in the dataset that need to be accounted for. As you can see in the histogram below, the resale price of the cars is right-skewed. To account for this, we will log-transform the price. We also found some correlation between some of the predictor variables in the data. For example, as you can see from the scatterplot below, the number of cylinders in the car is highly correlated with the engine size. To account for this issue, we will use variable selection techniques before fitting our model to make sure there aren't pairs of highly correlated predictors in the model.
