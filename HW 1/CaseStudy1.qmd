@@ -147,20 +147,39 @@ cars2 <- cars %>% mutate(
 model <- lm(Price ~ Mileage + Model + Trim + Sound + Leather, data=cars2)
 ```
 
+## Abstract
+
 ## Introduction
 
 Kelley Blue Book is one of the most well known and trusted car evaluation resources. The Kelley Blue Book value of a car is widely used by consumers and dealerships to determine the value of a car. In this report, we will use data from Kelley Blue Book to try and understand better what factors contribute to the resale value KBB sets, and in what way. By fitting a model, we will also be able to predict the resale value of a car given certain characteristics. Before fitting a model, there are a few issues in the dataset that need to be accounted for. As you can see in the histogram below, the resale price of the cars is right-skewed. To account for this, we will log-transform the price. We also found some correlation between some of the predictor variables in the data. For example, as you can see from the scatterplot below, the number of cylinders in the car is highly correlated with the engine size. To account for this issue, we will use variable selection techniques before fitting our model to make sure there aren't pairs of highly correlated predictors in the model.
 
-```{r fig.align='center', fig.height = 2.5, fig.width = 8, warning = FALSE}
+```{r fig.align='center', fig.height = 2.5, fig.width = 8, warning = FALSE, message=F}
 p1 <- ggplot(data = cars, aes(x = exp(Price))) +
   geom_histogram(binwidth = 2000) +
-  labs(title = "Histogram of Resale Price", x = "Resale Price", y = "Frequency")
+  labs(title = "Histogram of Resale Price", x = "Resale Price", y = "Frequency")+
+  theme(
+    plot.title = element_text(size = 10)
+  )
+
+log.p1 <- ggplot(data = cars, aes(x = Price)) +
+  geom_histogram(bins=30) +
+  labs(title = "Histogram of Logged Resale Price", x = "Logged Resale Price", y = "Frequency",
+       caption="The logged-transformed price approaches\nNormality more so than the original right\nskewed distribution."
+       )+
+  theme(
+    plot.title = element_text(size = 10)
+  )
 
 p2 <- ggplot(data = cars, aes(x = Cylinder, y = Liter)) +
   geom_point() +
-  labs(title = "Cylinder vs. Liter", x = "Cylinder", y = "Liter")
+  labs(title = "Cylinder vs. Liter", x = "Cylinder", y = "Liter",
+       caption = "Cylinder and Liter are Highly Correlated."
+       )+
+  theme(
+    plot.title = element_text(size = 10)
+  )
 
-p1 + p2
+p1 + log.p1 + p2
 
 ```
 
@@ -204,14 +223,14 @@ par(mfrow = c(1, 4), cex.main=0.5, mai = c(0,0,0,0), oma=c(0,0,0,0), mar=c(0,0,0
 plot(model)
 ```
 
-We hold that the assumption of linearity is met as the the structure of the residuals with respect to the fitted values do not show any structure. We also assert that our distributional assumption that our error term ($\epsilon$) is Normally distributed as shown by the QQ plot. While there are few outliers in the tails[^2] (see Table 1), we conclude that the heteroskedasticity is largely not an issue, although future analyses may wish model $\epsilon$ through a more robust form.
+We hold that the assumption of linearity is met as the the structure of the residuals with respect to the fitted values do not show any structure. We also assert that our distributional assumption that our error term ($\epsilon$) is Normally distributed as shown by the QQ plot. While there are few outliers in the tails[^2] (see Table 1), we conclude that the heteroskedasticity is largely not an issue, although future analyses may wish model $\epsilon$ through a more robust form. Along this note, we assume each observation in our data is independent (\emph{i.i.d.}) such that the resale price of one car does not affect the resale price of another. This may be violated if certain economic constraints are dictating the resale price of a class of cars or factors used in determining the resale price of cars.
 
 [^2]: After investigation, we do not find these outliers problematic. These observations contain unique combinations of covariates that average out the effects.
 
     ```{r echo=F}
     covariates <- c("Price", "Mileage", "Model", "Trim", "Sound", "Leather")
     kable(cars[c(605, 650, 742),covariates] |> mutate(
-      Price = exp(Price) |> round(2)
+      Price = exp(Price) |> dollar()
     ), caption = "Problematic Observations")
     ```
 
@@ -296,3 +315,5 @@ fit <- dollar(exp(y.hat))
 ```
 
 For a Caillac CTS 4d Sedan with 17,000 miles, 6 cylinder, 2.8 liter engine, cruise control, upgraded speakers, and leather seats, we performed a 95% prediction interval using our model. Our model predicts that this car will resale at `r fit[1]` (`r fit[2]`, `r fit[3]`).
+
+## Conclusion
