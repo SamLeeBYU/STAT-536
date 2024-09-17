@@ -1,0 +1,12 @@
+---
+title: "Case Study 2"
+author: "Sam Lee & Patric Platts"
+format: pdf
+editor: visual
+---
+
+## 1
+
+## 2
+
+## 3
