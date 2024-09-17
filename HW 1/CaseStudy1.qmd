@@ -190,7 +190,7 @@ p1 + log.p1 + p2
 
 ```
 
-
+Had we not accounted for these issues in the data, the standard error of our coefficients would have been incorrect and any intervals we calculate would be invalid. 
 
 ## Methodology
 
@@ -325,3 +325,7 @@ For a Caillac CTS 4d Sedan with 17,000 miles, 6 cylinder, 2.8 liter engine, crui
 This study examines the key factors that influence the resale value of a car using data from Kelley Blue Book. We determined the most significant factors that were of interest---notably, we concluded that while mileage contributed to the depreciation of a car, there was no inner dependency between the mileage of a car and its make. We also aimed to predict specific resale values for particular cars according to the this report's specifications. For example, a Cadillac CTS 4D Sedan with 17,000 miles was predicted to have a resale value of approximately $30,346.55, given its specific characteristics such as leather seats and upgraded sound system. We analyzed and compared two linear regression models using forward and backward selection methods. Both models used a logged transformed price in its evaluation.
 
 We also acknowledge several limitations that may prove insightful for future research and model adaptations. Notably we caution against a causal application of our model. Our model account for unobserved factors such as maintenance history or accident records. We also admit the potential need for additional structure in the error term ($\epsilon$) in our model to accomodate for potential dependencies. We would also encourage exploring non-linear models as well to investigate potential non-linearities found in our model.
+
+## Teamwork
+
+We worked on the coding and analysis together (git contributions can be viewed [here](https://github.com/SamLeeBYU/STAT-536/tree/main/HW%201)), and then we split up writing the report: Sam wrote up the Model Evaluation, Results, and Conclusion; Evan wrote up the Abstract, the Introduction, and Proposed Methods.
