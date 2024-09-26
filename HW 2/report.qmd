@@ -9,6 +9,7 @@ editor: visual
 knitr::opts_chunk$set(echo = F)
 library(tidyverse)
 library(pls)
+library(glmnet)
 
 rivers <- read_csv("Rivers.csv")
 
@@ -92,13 +93,19 @@ adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-optimal_k)
 adjusted.R.squared
 R.squared
 RMSE
-
-ols.influential <- lm(Y ~ X[,influential.factors])
-summary(ols.influential)
 ```
 
 ```{r}
 rivers.pcr <- pcr(Y ~ X, ncomp=optimal_k, scale=F)
+lasso.cv = cv.glmnet(x=X,y=Y, alpha = 1)
+rownames(coef(lasso.cv))[as.vector(abs(coef(lasso.cv)) > 0)]
+
+y.hat.pcr <- predict(rivers.pcr, newx = X)
+y.hat.lasso <- predict(lasso.cv, newx = X)
+
+sqrt(mean((Y-y.hat.lasso)^2))
+sqrt(mean((Y-y.hat.pcr)^2))
+
 ```
 
 ## 1
