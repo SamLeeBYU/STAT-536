@@ -8,8 +8,11 @@ editor: visual
 ```{r setup, include=FALSE, eval = TRUE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = F)
 library(tidyverse)
+library(pls)
 
 rivers <- read_csv("Rivers.csv")
+
+set.seed(536)
 ```
 
 ```{r, include=F, model}
@@ -92,6 +95,10 @@ RMSE
 
 ols.influential <- lm(Y ~ X[,influential.factors])
 summary(ols.influential)
+```
+
+```{r}
+rivers.pcr <- pcr(Y ~ X, ncomp=optimal_k, scale=F)
 ```
 
 ## 1
