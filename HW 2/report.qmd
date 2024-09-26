@@ -75,37 +75,63 @@ for (k in 1:max_k) {
 optimal_k <- which.min(rmse_cv)
 
 Z.k <- X %*% V[,1:optimal_k]
-
+# 
 gamma.hat <- solve(crossprod(Z.k, Z.k))%*%t(Z.k)%*%Y
-
-#(1xp) vector of covariates
-pcr.coef <- V[,1:optimal_k]%*%gamma.hat %>% as.vector()
-#Most influential factors
-n.factors <- 30
-influential.factors <- colnames(X)[order(abs(pcr.coef), decreasing = TRUE)[1:n.factors]]
+# 
+# #(1xp) vector of covariates
+# pcr.coef <- V[,1:optimal_k]%*%gamma.hat %>% as.vector()
+# #Most influential factors
+# n.factors <- 30
+# influential.factors <- colnames(X)[order(abs(pcr.coef), decreasing = TRUE)[1:n.factors]]
 
 Y.hat <- Z.k%*%gamma.hat
-
+# 
 RMSE <- sqrt(mean((Y-Y.hat)^2))
-R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
-adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-optimal_k)
-
-adjusted.R.squared
-R.squared
-RMSE
+# R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
+# adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-optimal_k)
+# 
+# adjusted.R.squared
+# R.squared
 ```
 
 ```{r}
 rivers.pcr <- pcr(Y ~ X, ncomp=optimal_k, scale=F)
 lasso.cv = cv.glmnet(x=X,y=Y, alpha = 1)
-rownames(coef(lasso.cv))[as.vector(abs(coef(lasso.cv)) > 0)]
+lasso.lambda <- lasso.cv$lambda.1se
+#rownames(coef(lasso.cv))[as.vector(abs(coef(lasso.cv)) > 0)]
 
-y.hat.pcr <- predict(rivers.pcr, newx = X)
 y.hat.lasso <- predict(lasso.cv, newx = X)
 
+#In sample RMSE
 sqrt(mean((Y-y.hat.lasso)^2))
-sqrt(mean((Y-y.hat.pcr)^2))
+sqrt(mean((Y-Y.hat)^2))
 
+#Out of sample RMSE
+lasso.loocv <- numeric(length(Y))
+pcr.loocv <- numeric(length(Y))
+for(i in 1:length(Y)){
+  Y.subset <- Y[-i]
+  X.subset <- X[-i,]
+  
+  lasso.cv = glmnet(x=X.subset,y=Y.subset, lambda = lasso.lambda, alpha = 1)
+  
+  X.0 <- X[i,,drop=F]
+  
+  lasso.loocv[i] <- predict(lasso.cv, newx=X.0)
+
+  #PCR Model Fit
+  
+  # Compute the first k principal components for training
+  Z <- X.subset %*% V[, 1:optimal_k]  # Use the first k principal components
+  gamma_hat <- solve(crossprod(Z, Z)) %*% t(Z) %*% Y.subset  # OLS estimate for gamma
+  
+  Z.0 <- X.0 %*% V[, 1:optimal_k]
+  pcr.loocv[i] <- Z.0 %*% gamma_hat
+}
+
+#LOOCV
+sqrt(mean((Y-lasso.loocv)^2))
+sqrt(mean((Y-pcr.loocv)^2))
 ```
 
 ## 1
