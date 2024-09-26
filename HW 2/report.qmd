@@ -12,6 +12,88 @@ library(tidyverse)
 rivers <- read_csv("Rivers.csv")
 ```
 
+```{r, include=F, model}
+Y <- rivers$Metric
+X <- rivers[,colnames(rivers)[2:length(colnames(rivers))]] %>% 
+  as.matrix()
+X <- scale(X)
+X <- X[, colSums(is.na(X)) == 0]
+
+svd_X <- svd(X)
+U <- svd_X$u  # Left singular vectors (n x p)
+D <- diag(svd_X$d)  # Diagonal matrix of singular values (p x p)
+V <- svd_X$v  # Right singular vectors (p x p), also the principal directions (eigenvectors)
+
+# Set cross-validation parameters
+K <- 5  # Number of folds for cross-validation
+n <- nrow(X)  # Number of observations
+folds <- sample(rep(1:K, length.out = n))  # Randomly assign each observation to a fold
+max_k <- min(ncol(X), nrow(X))-25  # Maximum number of components
+
+# Initialize a vector to store the average RMSE for each value of k
+rmse_cv <- numeric(max_k)
+
+# Cross-validation loop for different values of k
+for (k in 1:max_k) {
+  
+  # Vector to store the RMSE for each fold
+  rmse_fold <- numeric(K)
+  
+  # Perform K-fold cross-validation
+  for (fold in 1:K) {
+    
+    # Split the data into training and validation sets
+    train_idx <- which(folds != fold)
+    test_idx <- which(folds == fold)
+    
+    X_train <- X[train_idx, ]
+    Y_train <- Y[train_idx]
+    X_test <- X[test_idx, ]
+    Y_test <- Y[test_idx]
+    
+    # Compute the first k principal components for training
+    Z_train <- X_train %*% V[, 1:k]  # Use the first k principal components
+    gamma_hat <- solve(crossprod(Z_train, Z_train)) %*% t(Z_train) %*% Y_train  # OLS estimate for gamma
+    
+    # Predict on the test set using the same k components
+    Z_test <- X_test %*% V[, 1:k]  # Use the same first k components for testing
+    Y_hat_test <- Z_test %*% gamma_hat
+    
+    # Compute the RMSE on the test set
+    rmse_fold[fold] <- sqrt(mean((Y_test - Y_hat_test)^2))
+  }
+  
+  # Compute the average RMSE across all folds for this k
+  rmse_cv[k] <- mean(rmse_fold)
+}
+
+# Find the optimal k that minimizes the RMSE
+optimal_k <- which.min(rmse_cv)
+
+Z.k <- X %*% V[,1:optimal_k]
+
+gamma.hat <- solve(crossprod(Z.k, Z.k))%*%t(Z.k)%*%Y
+
+#(1xp) vector of covariates
+pcr.coef <- V[,1:optimal_k]%*%gamma.hat %>% as.vector()
+#Most influential factors
+n.factors <- 30
+influential.factors <- colnames(X)[order(abs(pcr.coef), decreasing = TRUE)[1:n.factors]]
+
+Y.hat <- Z.k%*%gamma.hat
+
+RMSE <- sqrt(mean((Y-Y.hat)^2))
+R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
+adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-optimal_k)
+
+adjusted.R.squared
+R.squared
+RMSE
+
+ols.influential <- lm(Y ~ X[,influential.factors])
+summary(ols.influential)
+```
+
 ## 1
 
 After standardizing the numerical covariates, we will fit two variable selection models: We will fit a lasso penalized regression model and a partial component regression (PCR) model. After fitting our models, we will apply a level of k-fold cross-validation to select the best hyperparameters for the model of best fit. After selecting our chosen model, we would examine the covariates that are the largest in absolute value (since the model would fit on scaled vectors) and which are significant.

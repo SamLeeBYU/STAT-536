@@ -68,3 +68,13 @@ betahats = coef(lasso.cv)
 sum(betahats!=0) #only 26 nonzero coefficients: much more manageable than 5000! 
 # where are the p-values...?
 
+#Ridge
+ridge.cv = cv.glmnet(x=X,y=gene$Malignant, alpha=0,
+                     nfolds = 20)
+plot(ridge.cv)
+
+ridge.cv$lambda.min
+ridge.cv$lambda.1se
+
+ridge.coefs <- coef(ridge.cv)
+sum(abs(ridge.coefs) >= 0.01)
