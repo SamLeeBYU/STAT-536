@@ -96,7 +96,7 @@ RMSE <- sqrt(mean((Y-Y.hat)^2))
 # R.squared
 ```
 
-```{r}
+```{r include=F}
 rivers.pcr <- pcr(Y ~ X, ncomp=optimal_k, scale=F)
 lasso.cv = cv.glmnet(x=X,y=Y, alpha = 1)
 lasso.lambda <- lasso.cv$lambda.1se
@@ -135,7 +135,7 @@ for(i in 1:length(Y)){
 sqrt(mean((Y-lasso.loocv)^2))
 sqrt(mean((Y-pcr.loocv)^2))
 ```
-```{r fig.width=8}
+```{r fig.width=8, echo=F}
 # Get the map of the US
 us_map <- map_data("state")
 
@@ -169,3 +169,32 @@ To assess the predictive power of the model, we would look at the (out-of-sample
 [^1]: We would assess this using the criteria established by the following expression:  $\sum_{j=1}^k\frac{\lambda_j^2}{\sum_{i=1}^p\lambda_i^2}$, where each $\lambda_j$ corresponds to the singular value of the $j$-th principal component.
 
 [^2]: We can assess the selection frequency of each $j$-th covariate by using this bootrstrapping method as described through the following expression: $\frac{1}{B}\sum_{b=1}^B\mathbb{1}(\hat{\beta}_j^{\text{lasso, } b} \neq 0)$.
+
+
+## Results
+
+```{r echo=F}
+lasso.covariates = rownames(coef(lasso.cv))[as.vector(abs(coef(lasso.cv)) > 0)]
+lasso.covariates
+
+
+
+```
+
+Make a table with coefficients, description, effects, and confidence interval of bootstrap distributions
+
+```{r echo=F}
+Y.hat <- predict(lasso.cv, newx = X)
+R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
+adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-length(lasso.covariates))
+R.squared
+adjusted.R.squared
+```
+
+For in-sample fit, we computed an adjusted-R^2 of....
+
+Using LOOCV, we computed an out-of-sample RMSE of....So on average the out-of-sample prediction is [LOOCV RMSE] away from the actual measurement of river flow.
+
+
+
+
