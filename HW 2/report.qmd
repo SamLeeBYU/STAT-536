@@ -10,6 +10,8 @@ knitr::opts_chunk$set(echo = F)
 library(tidyverse)
 library(pls)
 library(glmnet)
+library(maps)
+library(latex2exp)
 
 rivers <- read_csv("Rivers.csv")
 
@@ -132,6 +134,24 @@ for(i in 1:length(Y)){
 #LOOCV
 sqrt(mean((Y-lasso.loocv)^2))
 sqrt(mean((Y-pcr.loocv)^2))
+```
+```{r fig.width=8}
+# Get the map of the US
+us_map <- map_data("state")
+
+# Create the map and scatter plot
+ggplot() +
+  # Plot the map of the US
+  geom_polygon(data = us_map, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
+  # Add scatter plot of the observations
+  geom_point(data = rivers, aes(x = Lon, y = Lat), color = "#AACCEE", size = 2, alpha = 0.6) +
+  # Set the map boundaries
+  coord_fixed(1.3) +
+  # Add labels and title
+  labs(title = TeX("Scatter Plot of River Observations"),
+       x = TeX("Longitude"), 
+       y = TeX("Latitude")) +
+  theme_minimal()
 ```
 
 ## 1
