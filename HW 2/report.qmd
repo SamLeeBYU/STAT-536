@@ -3,6 +3,11 @@ title: "Case Study 2"
 author: "Sam Lee & Patric Platts"
 format: pdf
 editor: visual
+geometry: 
+  - top=1in
+  - left=1in
+  - right=1in
+  - bottom=1in
 ---
 
 ```{r setup, include=FALSE, eval = TRUE, message = FALSE, warning = FALSE}
@@ -12,8 +17,15 @@ library(pls)
 library(glmnet)
 library(maps)
 library(latex2exp)
+library(knitr)
+
+source("to_latex.R")
 
 rivers <- read_csv("Rivers.csv")
+metadata <- read_csv("Metadata.csv") %>%
+  mutate(
+    descr = tools::toTitleCase(descr)
+  )
 
 set.seed(536)
 ```
@@ -31,7 +43,7 @@ D <- diag(svd_X$d)  # Diagonal matrix of singular values (p x p)
 V <- svd_X$v  # Right singular vectors (p x p), also the principal directions (eigenvectors)
 
 # Set cross-validation parameters
-K <- 5  # Number of folds for cross-validation
+K <- 10  # Number of folds for cross-validation
 n <- nrow(X)  # Number of observations
 folds <- sample(rep(1:K, length.out = n))  # Randomly assign each observation to a fold
 max_k <- min(ncol(X), nrow(X))-25  # Maximum number of components
@@ -96,7 +108,7 @@ RMSE <- sqrt(mean((Y-Y.hat)^2))
 # R.squared
 ```
 
-```{r include=F}
+```{r include=F, cross-validate}
 rivers.pcr <- pcr(Y ~ X, ncomp=optimal_k, scale=F)
 lasso.cv = cv.glmnet(x=X,y=Y, alpha = 1)
 lasso.lambda <- lasso.cv$lambda.1se
@@ -135,7 +147,7 @@ for(i in 1:length(Y)){
 sqrt(mean((Y-lasso.loocv)^2))
 sqrt(mean((Y-pcr.loocv)^2))
 ```
-```{r fig.width=8, echo=F}
+```{r fig.width=8, echo=F, map}
 # Get the map of the US
 us_map <- map_data("state")
 
@@ -168,17 +180,60 @@ To assess the predictive power of the model, we would look at the (out-of-sample
 
 [^1]: We would assess this using the criteria established by the following expression:  $\sum_{j=1}^k\frac{\lambda_j^2}{\sum_{i=1}^p\lambda_i^2}$, where each $\lambda_j$ corresponds to the singular value of the $j$-th principal component.
 
-[^2]: We can assess the selection frequency of each $j$-th covariate by using this bootrstrapping method as described through the following expression: $\frac{1}{B}\sum_{b=1}^B\mathbb{1}(\hat{\beta}_j^{\text{lasso, } b} \neq 0)$.
+[^2]: We can assess the selection frequency of each $j$-th covariate by using this bootstrapping method as described through the following expression: $\frac{1}{B}\sum_{b=1}^B\mathbb{1}(\hat{\beta}_j^{\text{lasso, } b} \neq 0)$.
 
+
+## Methodology
+
+$$
+\underset{\beta}{\text{arg min}} \sum_{i=1}^n(y_i-x_i'\beta)^2+\lambda\sum_{p=1}^{P}|\beta_p|
+$$
 
 ## Results
 
-```{r echo=F}
+```{r echo=F, bootstrap}
 lasso.covariates = rownames(coef(lasso.cv))[as.vector(abs(coef(lasso.cv)) > 0)]
-lasso.covariates
 
+#Bootstrap
+B = 10000
+K = 100
+beta.b <- matrix(nrow=(1+ncol(X)), ncol=B)
+for(b in 1:B){
+  observations.b <- sample(1:length(Y), size=K, replace = T)
+  Y.b <- Y[observations.b]
+  X.b <- X[observations.b,]
+  lasso.b <- glmnet(X.b, Y.b, lambda=lasso.lambda, alpha=1)
+  beta.b[,b] <- as.vector(coef(lasso.b))
+}
+#How often each covariate is included
+beta.importance <- (abs(beta.b) > 0) %>% ifelse(1, 0) %>% rowMeans()
 
+beta.bar <- beta.b %>% rowMeans()
+se.bar <- numeric(nrow(beta.b))
+for(j in 1:nrow(beta.b)){
+  se.bar[j] <- sum((beta.b[j,]-beta.bar[j])^2)
+}
+#Bootstrap standard errors
+lasso.se <- sqrt((1/(B-1))*se.bar)
 
+covariates.indices <- c(1, 1+(which(colnames(X) %in% lasso.covariates)))
+
+#How often coefficients were included in B bootstraps
+#beta.importance[covariates.indices]
+
+#95% Centered Confidence Intervals
+lasso.beta <- as.vector(coef(lasso.cv))
+beta.ci.centered.lower <- 2 * lasso.beta - apply(beta.b, 1, function(x) quantile(x, probs = 0.975))
+beta.ci.centered.upper <- 2 * lasso.beta - apply(beta.b, 1, function(x) quantile(x, probs = 0.025))
+
+beta.ci.centered <- cbind(beta.ci.centered.lower, beta.ci.centered.upper)
+#beta.ci.centered[covariates.indices,]
+
+to_latex(beta.ci.centered[covariates.indices,], 
+                         lasso.beta[covariates.indices], 
+                         beta.importance[covariates.indices],
+        lasso.covariates, metadata
+        )
 ```
 
 Make a table with coefficients, description, effects, and confidence interval of bootstrap distributions
