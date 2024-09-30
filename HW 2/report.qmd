@@ -101,12 +101,12 @@ gamma.hat <- solve(crossprod(Z.k, Z.k))%*%t(Z.k)%*%Y
 
 y.hat.pcr <- Z.k%*%gamma.hat
 
-#RMSE <- sqrt(mean((Y-Y.hat)^2))
-# R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
-# adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-optimal_k)
-# 
-# adjusted.R.squared
-# R.squared
+RMSE <- sqrt(mean((Y-Y.hat)^2))
+R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
+adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-optimal_k)
+
+adjusted.R.squared
+R.squared
 ```
 
 ```{r include=F, cross-validate}
@@ -187,10 +187,11 @@ To assess the predictive power of the model, we would look at the (out-of-sample
 
 ## Introduction
 
+Ecosystems are shaped by various factors, with rivers playing a critical role in distributing water and nutrients essential for plant and animal life. In the U.S. Rocky Mountains, the stability of river flow is particularly important, as it influences soil fertility—a key factor for agriculture that sustains both people and livestock. This analysis examines the factors affecting river flow in the Rocky Mountain Region, focusing on human activity, river network characteristics, and climate influences. The data used in this study were collected from multiple rivers in the region to explore how these variables impact overall water flow.
 
+#### Insert a plot or illustration of the data?????
 
-
-
+The number of covariates in the data is nearly equal to the number of observations, creating a risk of overfitting due to insufficient local information. In such cases, a standard linear regression model tends to overfitting, capturing noise rather than meaningful patterns, and resulting in poor model performance. High-dimensional data can also lead to "false positives," where unrelated variables appear to be associated with the response variable. To address these issues, this analysis applies variable selection and dimensionality reduction techniques. These methods will help identify the most significant factors influencing water flow in rivers throughout the Rocky Mountains.
 
 ## Methodology
 
@@ -208,9 +209,20 @@ Secondly, we propose fitting a Lasso Linear Regression model to accomplish both 
 
 When we introduce the penalty parameter, however, the coefficients on this model will be biased. We sacrifice this bias however for a decrease in the variance of the parameters. As a result, to accurately assess the standard error of each covariate effect, we perform bootstrapping methods to estimate 95% confidence intervals on $\beta$.
 
+#### Model Evaluation
+
+Both models, LASSO and PCR, were evaluated using in-sample and out-of-sample performance measures. To assess the in-sample fit, the adjusted $R^2$ was used. LASSO achieved an adjusted $R^2$ of [insert value], while PCR achieved an adjusted $R^2$ of [insert value]. This indicates that [LASSO/PCR] provides a better in-sample fit to the data.
+
+For out-of-sample prediction performance, the root mean square error (RMSE) was compared between the two models. LASSO had an RMSE of [insert value], while PCR had an RMSE of [insert value]. Although both models yielded similar RMSE values, indicating that either method could be appropriate for analyzing this dataset, LASSO was ultimately chosen due to its interpretability.
+
+PCR reduces dimensionality by grouping variables into components, each explaining a portion of the variability. However, the complexity of interpreting these components—since different variables have varying weights within each component—makes it difficult to determine the individual contribution of each factor to river water flow. In contrast, LASSO simplifies interpretation by shrinking less important variables to zero, leaving only the key factors that directly impact water flow.
+
+
 $$
 \underset{\beta}{\text{arg min}} \sum_{i=1}^n(y_i-x_i'\beta)^2+\lambda\sum_{p=1}^{P}|\beta_p|
 $$
+
+#### Talk about the assumptions of the model clearly
 
 ## Results
 
