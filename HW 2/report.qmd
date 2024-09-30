@@ -1,5 +1,6 @@
 ---
 title: "Case Study 2"
+subtitle: "Rocky Mountain River Drainage"
 author: "Sam Lee & Patric Platts"
 format: pdf
 editor: visual
@@ -30,7 +31,7 @@ metadata <- read_csv("Metadata.csv") %>%
 set.seed(536)
 ```
 
-```{r, include=F, model}
+```{r, include=F, pcr-model}
 Y <- rivers$Metric
 X <- rivers[,colnames(rivers)[2:length(colnames(rivers))]] %>% 
   as.matrix()
@@ -98,9 +99,9 @@ gamma.hat <- solve(crossprod(Z.k, Z.k))%*%t(Z.k)%*%Y
 # n.factors <- 30
 # influential.factors <- colnames(X)[order(abs(pcr.coef), decreasing = TRUE)[1:n.factors]]
 
-Y.hat <- Z.k%*%gamma.hat
-# 
-RMSE <- sqrt(mean((Y-Y.hat)^2))
+y.hat.pcr <- Z.k%*%gamma.hat
+
+#RMSE <- sqrt(mean((Y-Y.hat)^2))
 # R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
 # adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-optimal_k)
 # 
@@ -110,15 +111,16 @@ RMSE <- sqrt(mean((Y-Y.hat)^2))
 
 ```{r include=F, cross-validate}
 rivers.pcr <- pcr(Y ~ X, ncomp=optimal_k, scale=F)
-lasso.cv = cv.glmnet(x=X,y=Y, alpha = 1)
-lasso.lambda <- lasso.cv$lambda.1se
-#rownames(coef(lasso.cv))[as.vector(abs(coef(lasso.cv)) > 0)]
+model = cv.glmnet(x=X,y=Y, alpha = 1)
 
-y.hat.lasso <- predict(lasso.cv, newx = X)
+#Store the optimal hyperparameter for future use
+lasso.lambda <- model$lambda.1se
+
+y.hat.lasso <- predict(model, newx = X)
 
 #In sample RMSE
 sqrt(mean((Y-y.hat.lasso)^2))
-sqrt(mean((Y-Y.hat)^2))
+sqrt(mean((Y-y.hat.pcr)^2))
 
 #Out of sample RMSE
 lasso.loocv <- numeric(length(Y))
@@ -127,11 +129,11 @@ for(i in 1:length(Y)){
   Y.subset <- Y[-i]
   X.subset <- X[-i,]
   
-  lasso.cv = glmnet(x=X.subset,y=Y.subset, lambda = lasso.lambda, alpha = 1)
+  model.subset = glmnet(x=X.subset,y=Y.subset, lambda = lasso.lambda, alpha = 1)
   
   X.0 <- X[i,,drop=F]
   
-  lasso.loocv[i] <- predict(lasso.cv, newx=X.0)
+  lasso.loocv[i] <- predict(model.subset, newx=X.0)
 
   #PCR Model Fit
   
@@ -147,7 +149,8 @@ for(i in 1:length(Y)){
 sqrt(mean((Y-lasso.loocv)^2))
 sqrt(mean((Y-pcr.loocv)^2))
 ```
-```{r fig.width=8, echo=F, map}
+
+```{r fig.width=8, fig.cap = "Scatter plot of spatial displacement of each observation of recorded river flow", echo=F, map}
 # Get the map of the US
 us_map <- map_data("state")
 
@@ -156,11 +159,11 @@ ggplot() +
   # Plot the map of the US
   geom_polygon(data = us_map, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
   # Add scatter plot of the observations
-  geom_point(data = rivers, aes(x = Lon, y = Lat), color = "#AACCEE", size = 2, alpha = 0.6) +
+  geom_point(data = rivers, aes(x = Lon, y = Lat), color = "#AACCEE", size = 2) +
   # Set the map boundaries
   coord_fixed(1.3) +
   # Add labels and title
-  labs(title = TeX("Scatter Plot of River Observations"),
+  labs(
        x = TeX("Longitude"), 
        y = TeX("Latitude")) +
   theme_minimal()
@@ -178,12 +181,25 @@ We would look at the adjusted $R^2$ statistic as an overall model fit adjusted f
 
 To assess the predictive power of the model, we would look at the (out-of-sample) RMSE through k-fold cross-validation. To specifically look at the predictive power of the covariates we included, for a model like PCR, we could assess the portion of variance explained by each component as well as the total cumulative explained variance[^1]. For our lasso regression model, in addition to RMSE as assessed through cross-validation and the adjusted $R^2$, we would create ($B$ \# of) bootstraps of the data and fit the lasso model on each bootstrap, checking the frequency at which each covariate is selected[^2]. We can also use bootstrap to obtain confidence intervals for each coefficient as see if these are statisticaly significant.
 
-[^1]: We would assess this using the criteria established by the following expression:  $\sum_{j=1}^k\frac{\lambda_j^2}{\sum_{i=1}^p\lambda_i^2}$, where each $\lambda_j$ corresponds to the singular value of the $j$-th principal component.
+[^1]: We would assess this using the criteria established by the following expression: $\sum_{j=1}^k\frac{\lambda_j^2}{\sum_{i=1}^p\lambda_i^2}$, where each $\lambda_j$ corresponds to the singular value of the $j$-th principal component.
 
 [^2]: We can assess the selection frequency of each $j$-th covariate by using this bootstrapping method as described through the following expression: $\frac{1}{B}\sum_{b=1}^B\mathbb{1}(\hat{\beta}_j^{\text{lasso, } b} \neq 0)$.
 
-
 ## Methodology
+
+To reduce potential colinearity between the different factors in the data set and arrive at an optimal parsimonious model, we propose two models to assess the overall water flow of water sources in the Rocky Mountains. In this section, we will discuss both candidate models and how these models can be used to answer the research questions at hand.
+
+We first propose a Partial Component Regression (PCR) model. PCR combines Principal Component Analysis (PCA) with linear regression. Under the assumption that the parameters of interest ($\beta$) are linear—that is, assuming a one-unit increase in a $p$th factor (among those we consider) implies a $\beta_p$ increase in the water flow metric—we leverage this by applying linear regression to the set of orthogonal components computed by PCA[^3]. We used ten-fold cross-validation to select the most optimal number of components, $k^*$; through this process, we chose $k^*=9$. The strengths with $PCR$ come with its robustness to multicolinearity in the covariate matrix, $X$. Additionally, PCR performs dimensionality reduction by only selecting the top principal components (in our case, we selected 9) to achieve a parsimonious model.
+
+The tradeoff that comes with using PCR, however, is its lack of interpretability. Since each component is a linear combination of all individual covariates in $X$, the coefficients derived from our PCR model are not directly interpretable. Additionally, PCR computes and therefore selects components based on the variance of the covariate matrix $X$, as opposed to each factor's relationship with our response variable, the metric of water flow. Hence, the components may not necessarily contribute to predicting the outcome of interest.
+
+[^3]: We first orthogonalize the set of all factors of interest, $X$, through singular-value decomposition, where $X=U\Sigma V'$. We then compute $Z_k=XV_k$, for $k$ number of components where $V_k$ is a subset of $V$ consisting of the first $k$ columns of $V$. Each column of $Z_k$ is then orthogonal to each other, that is, $Z_i'Z_j=0$ $\forall i\neq j$. Then, performing linear regression, we compute the set of linear $\gamma_k$ coefficient parameters (where $\gamma_k$ is of dimension $k$) using $Z_k$ as the new covariate matrix. Solving for $\gamma_k$, $\gamma_k=(Z_k'Z_k)^{-1}Z_k'Y$. $\hat{Y}$ is then computed as $\hat{Y}=Z_k\gamma_k$.
+
+Secondly, we propose fitting a Lasso Linear Regression model to accomplish both dimension reduction through variable selection and interpretability. Similar to our PCR model, we will operate on the assume that each of our factors have a linear effect on the water flow metric. However, after standardization on the matrix $X$, Lasso Regression imposes an $L_1$ penalty[^4] to both shrink the estimated coefficients and perform variable selection. Our Lasso Regression model is also suited to handle multicolinearity through the penalization parameter. However, unlike PCR, we can focus on predictive power since there is a direct relationship between the water flow metric and its covariates. Hence, we believe this model to be more interpretable.
+
+When we introduce the penalty parameter, however, the coefficients on this model will be biased. We sacrifice this bias however for a decrease in the variance of the parameters. As a result, to accurately assess the standard error of each covariate effect, we perform bootstrapping methods to estimate 95\% confidence intervals on $\beta$.
+
+[^4]: Formally, the $L_1$ penalty is computed as a vector norm ($||\cdot||$), where, for a vector $\beta$ with dimension $P$, $||\beta||=\sum_{p=1}^{P}|\beta_p|$.
 
 $$
 \underset{\beta}{\text{arg min}} \sum_{i=1}^n(y_i-x_i'\beta)^2+\lambda\sum_{p=1}^{P}|\beta_p|
@@ -192,7 +208,7 @@ $$
 ## Results
 
 ```{r echo=F, bootstrap}
-lasso.covariates = rownames(coef(lasso.cv))[as.vector(abs(coef(lasso.cv)) > 0)]
+lasso.covariates = rownames(coef(model))[as.vector(abs(coef(model)) > 0)]
 
 #Bootstrap
 B = 10000
@@ -222,7 +238,7 @@ covariates.indices <- c(1, 1+(which(colnames(X) %in% lasso.covariates)))
 #beta.importance[covariates.indices]
 
 #95% Centered Confidence Intervals
-lasso.beta <- as.vector(coef(lasso.cv))
+lasso.beta <- as.vector(coef(model))
 beta.ci.centered.lower <- 2 * lasso.beta - apply(beta.b, 1, function(x) quantile(x, probs = 0.975))
 beta.ci.centered.upper <- 2 * lasso.beta - apply(beta.b, 1, function(x) quantile(x, probs = 0.025))
 
@@ -236,20 +252,51 @@ to_latex(beta.ci.centered[covariates.indices,],
         )
 ```
 
-Make a table with coefficients, description, effects, and confidence interval of bootstrap distributions
+```{r graph, echo=F, fig.width = 8, fig.align='center', fig.width=8, message=F, fig.cap="A comparison of actual and predicted values using Lasso Regression"}
 
-```{r echo=F}
-Y.hat <- predict(lasso.cv, newx = X)
-R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
-adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-length(lasso.covariates))
-R.squared
-adjusted.R.squared
+bio15 = X[,"bio15"]
+
+lasso.data <- data.frame(
+  y = Y,              
+  y.hat = y.hat.lasso,
+  bio15.significant = abs(bio15) >= quantile(bio15, 0.95)
+)
+colnames(lasso.data)[2] <- "y.hat"
+
+lasso.data %>%
+  ggplot(aes(x = y.hat, y = y)) +
+  geom_smooth(method = "lm", 
+              formula = y ~ x,
+              se = FALSE, color = "#111", linetype = "dashed",
+              linewidth=0.5) + 
+  geom_point(aes(color = bio15.significant), size = 2) +
+  scale_color_manual(values = c("FALSE" = "#0072B2", "TRUE" = "#CC6699"),
+                     name = "Significant\nbio15") +           
+  labs(
+    y = expression(Y),                      
+    x = expression(hat(Y)),                    
+    title = "Observed vs. Predicted Values"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    panel.grid.major = element_line(color = "gray80"),
+    panel.grid.minor = element_blank(),
+    legend.position = "inside",
+    legend.position.inside = c(0.1, 0.85),
+    legend.background = element_rect(color = "black", linewidth = 0.5),
+    legend.box.background = element_rect(color = "black") 
+  )
 ```
 
-For in-sample fit, we computed an adjusted-R^2 of....
+Make a table with coefficients, description, effects, and confidence interval of bootstrap distributions
 
-Using LOOCV, we computed an out-of-sample RMSE of....So on average the out-of-sample prediction is [LOOCV RMSE] away from the actual measurement of river flow.
+```{r echo=F, in_sample}
+Y.hat <- predict(model, newx = X)
+R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
+adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-length(lasso.covariates))
+```
 
+For in-sample fit, we computed an adjusted-R\^2 of....
 
-
-
+Using LOOCV, we computed an out-of-sample RMSE of....So on average the out-of-sample prediction is \[LOOCV RMSE\] away from the actual measurement of river flow.
