@@ -185,21 +185,28 @@ To assess the predictive power of the model, we would look at the (out-of-sample
 
 [^2]: We can assess the selection frequency of each $j$-th covariate by using this bootstrapping method as described through the following expression: $\frac{1}{B}\sum_{b=1}^B\mathbb{1}(\hat{\beta}_j^{\text{lasso, } b} \neq 0)$.
 
+## Introduction
+
+
+
+
+
+
 ## Methodology
 
 To reduce potential colinearity between the different factors in the data set and arrive at an optimal parsimonious model, we propose two models to assess the overall water flow of water sources in the Rocky Mountains. In this section, we will discuss both candidate models and how these models can be used to answer the research questions at hand.
 
 We first propose a Partial Component Regression (PCR) model. PCR combines Principal Component Analysis (PCA) with linear regression. Under the assumption that the parameters of interest ($\beta$) are linear—that is, assuming a one-unit increase in a $p$th factor (among those we consider) implies a $\beta_p$ increase in the water flow metric—we leverage this by applying linear regression to the set of orthogonal components computed by PCA[^3]. We used ten-fold cross-validation to select the most optimal number of components, $k^*$; through this process, we chose $k^*=9$. The strengths with $PCR$ come with its robustness to multicolinearity in the covariate matrix, $X$. Additionally, PCR performs dimensionality reduction by only selecting the top principal components (in our case, we selected 9) to achieve a parsimonious model.
 
-The tradeoff that comes with using PCR, however, is its lack of interpretability. Since each component is a linear combination of all individual covariates in $X$, the coefficients derived from our PCR model are not directly interpretable. Additionally, PCR computes and therefore selects components based on the variance of the covariate matrix $X$, as opposed to each factor's relationship with our response variable, the metric of water flow. Hence, the components may not necessarily contribute to predicting the outcome of interest.
-
 [^3]: We first orthogonalize the set of all factors of interest, $X$, through singular-value decomposition, where $X=U\Sigma V'$. We then compute $Z_k=XV_k$, for $k$ number of components where $V_k$ is a subset of $V$ consisting of the first $k$ columns of $V$. Each column of $Z_k$ is then orthogonal to each other, that is, $Z_i'Z_j=0$ $\forall i\neq j$. Then, performing linear regression, we compute the set of linear $\gamma_k$ coefficient parameters (where $\gamma_k$ is of dimension $k$) using $Z_k$ as the new covariate matrix. Solving for $\gamma_k$, $\gamma_k=(Z_k'Z_k)^{-1}Z_k'Y$. $\hat{Y}$ is then computed as $\hat{Y}=Z_k\gamma_k$.
+
+The tradeoff that comes with using PCR, however, is its lack of interpretability. Since each component is a linear combination of all individual covariates in $X$, the coefficients derived from our PCR model are not directly interpretable. Additionally, PCR computes and therefore selects components based on the variance of the covariate matrix $X$, as opposed to each factor's relationship with our response variable, the metric of water flow. Hence, the components may not necessarily contribute to predicting the outcome of interest.
 
 Secondly, we propose fitting a Lasso Linear Regression model to accomplish both dimension reduction through variable selection and interpretability. Similar to our PCR model, we will operate on the assume that each of our factors have a linear effect on the water flow metric. However, after standardization on the matrix $X$, Lasso Regression imposes an $L_1$ penalty[^4] to both shrink the estimated coefficients and perform variable selection. Our Lasso Regression model is also suited to handle multicolinearity through the penalization parameter. However, unlike PCR, we can focus on predictive power since there is a direct relationship between the water flow metric and its covariates. Hence, we believe this model to be more interpretable.
 
-When we introduce the penalty parameter, however, the coefficients on this model will be biased. We sacrifice this bias however for a decrease in the variance of the parameters. As a result, to accurately assess the standard error of each covariate effect, we perform bootstrapping methods to estimate 95\% confidence intervals on $\beta$.
-
 [^4]: Formally, the $L_1$ penalty is computed as a vector norm ($||\cdot||$), where, for a vector $\beta$ with dimension $P$, $||\beta||=\sum_{p=1}^{P}|\beta_p|$.
+
+When we introduce the penalty parameter, however, the coefficients on this model will be biased. We sacrifice this bias however for a decrease in the variance of the parameters. As a result, to accurately assess the standard error of each covariate effect, we perform bootstrapping methods to estimate 95% confidence intervals on $\beta$.
 
 $$
 \underset{\beta}{\text{arg min}} \sum_{i=1}^n(y_i-x_i'\beta)^2+\lambda\sum_{p=1}^{P}|\beta_p|
