@@ -61,7 +61,7 @@ to_latex <- function(beta_ci_centered, lasso_beta, beta_importance, covariate_na
   latex_table <- kable(sorted_df, format = "latex", booktabs = TRUE, 
                        col.names = c("Covariate", "Description", "Estimate", "95% CI", "Inclusion Frequency"),
                        row.names = FALSE,  # Removes row names
-                       caption = "Lasso Coefficient Estimates") %>%
+                       caption = "\\label{tab:lasso-coefficients}Lasso Coefficient Estimates") %>%
     kable_styling(latex_options = "hold_position", font_size = 7.5) %>%  # Set smaller font size
     column_spec(2, width = "5cm", latex_valign = "m")  # Set the width of the 'Description' column
   
