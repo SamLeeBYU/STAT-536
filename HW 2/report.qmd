@@ -10,6 +10,7 @@ geometry:
   - right=1in
   - bottom=1in
 ---
+
 ```{r setup, include=FALSE, eval = TRUE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = F)
 library(tidyverse)
@@ -29,6 +30,7 @@ metadata <- read_csv("Metadata.csv") %>%
 
 set.seed(536)
 ```
+
 ```{r, include=F, pcr-model}
 Y <- rivers$Metric
 X <- rivers[,colnames(rivers)[2:length(colnames(rivers))]] %>% 
@@ -99,13 +101,14 @@ gamma.hat <- solve(crossprod(Z.k, Z.k))%*%t(Z.k)%*%Y
 
 y.hat.pcr <- Z.k%*%gamma.hat
 
-RMSE <- sqrt(mean((Y-Y.hat)^2))
-R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
-adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-optimal_k)
-
-adjusted.R.squared
-R.squared
+# RMSE <- sqrt(mean((Y-Y.hat)^2))
+# R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
+# adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-optimal_k)
+# 
+# adjusted.R.squared
+# R.squared
 ```
+
 ```{r include=F, cross-validate}
 rivers.pcr <- pcr(Y ~ X, ncomp=optimal_k, scale=F)
 model = cv.glmnet(x=X,y=Y, alpha = 1)
@@ -151,6 +154,8 @@ sqrt(mean((Y-pcr.loocv)^2))
 
 ## Introduction
 
+Ecosystems are shaped by various factors, with rivers playing a critical role in distributing water and nutrients essential for plant and animal life. In the U.S. Rocky Mountains, the stability of river flow is particularly important, as it influences soil fertility—a key factor for agriculture that sustains both people and livestock. This analysis examines the factors affecting river flow in the Rocky Mountain Region, focusing on human activity, river network characteristics, and climate influences. The data used in this study were collected from multiple rivers in the region to explore how these variables impact overall water flow.
+
 ```{r fig.width=10, fig.cap = "Scatter plot of spatial displacement of each observation of recorded river flow", echo=F, map}
 # Get the map of the US
 us_map <- map_data("state")
@@ -169,81 +174,53 @@ ggplot() +
        y = "Latitude") +
   theme_minimal()
 ```
-<<<<<<< HEAD
-
-## 1
-
-After standardizing the numerical covariates, we will fit two variable selection models: We will fit a lasso penalized regression model and a partial component regression (PCR) model. After fitting our models, we will apply a level of k-fold cross-validation to select the best hyperparameters for the model of best fit. After selecting our chosen model, we would examine the covariates that are the largest in absolute value (since the model would fit on scaled vectors) and which are significant.
-
-## 2
-
-We would look at the adjusted $R^2$ statistic as an overall model fit adjusted for the number of covariates included. We would also compare how well our selected covariates from the lasso regression compare to the full model fit by running an ANOVA test of the two models (comparing their f-statistics of significance).
-
-## 3
-
-To assess the predictive power of the model, we would look at the (out-of-sample) RMSE through k-fold cross-validation. To specifically look at the predictive power of the covariates we included, for a model like PCR, we could assess the portion of variance explained by each component as well as the total cumulative explained variance[^1]. For our lasso regression model, in addition to RMSE as assessed through cross-validation and the adjusted $R^2$, we would create ($B$ \# of) bootstraps of the data and fit the lasso model on each bootstrap, checking the frequency at which each covariate is selected[^2]. We can also use bootstrap to obtain confidence intervals for each coefficient as see if these are statisticaly significant.
-
-[^1]: We would assess this using the criteria established by the following expression: $\sum_{j=1}^k\frac{\lambda_j^2}{\sum_{i=1}^p\lambda_i^2}$, where each $\lambda_j$ corresponds to the singular value of the $j$-th principal component.
-
-[^2]: We can assess the selection frequency of each $j$-th covariate by using this bootstrapping method as described through the following expression: $\frac{1}{B}\sum_{b=1}^B\mathbb{1}(\hat{\beta}_j^{\text{lasso, } b} \neq 0)$.
-
-## Introduction
-
-Ecosystems are shaped by various factors, with rivers playing a critical role in distributing water and nutrients essential for plant and animal life. In the U.S. Rocky Mountains, the stability of river flow is particularly important, as it influences soil fertility—a key factor for agriculture that sustains both people and livestock. This analysis examines the factors affecting river flow in the Rocky Mountain Region, focusing on human activity, river network characteristics, and climate influences. The data used in this study were collected from multiple rivers in the region to explore how these variables impact overall water flow.
-
-#### Insert a plot or illustration of the data?????
 
 The number of covariates in the data is nearly equal to the number of observations, creating a risk of overfitting due to insufficient local information. In such cases, a standard linear regression model tends to overfitting, capturing noise rather than meaningful patterns, and resulting in poor model performance. High-dimensional data can also lead to "false positives," where unrelated variables appear to be associated with the response variable. To address these issues, this analysis applies variable selection and dimensionality reduction techniques. These methods will help identify the most significant factors influencing water flow in rivers throughout the Rocky Mountains.
 
-=======
->>>>>>> 44687f716227ed0c5466665bbf840809d994b8cb
 ## Methodology
 
 To reduce potential colinearity between the different factors in the data set and arrive at an optimal parsimonious model, we propose two models to assess the overall water flow of water sources in the Rocky Mountains. In this section, we will discuss both candidate models and how these models can be used to answer the research questions at hand.
 
-We first propose a Partial Component Regression (PCR) model. PCR combines Principal Component Analysis (PCA) with linear regression. Under the assumption that the parameters of interest ($\beta$) are linear—that is, assuming a one-unit increase in a $p$th factor (among those we consider) implies a $\beta_p$ increase in the water flow metric—we leverage this by applying linear regression to the set of orthogonal components computed by PCA[^3]. We used ten-fold cross-validation to select the most optimal number of components, $k^*$; through this process, we chose $k^*=9$. The strengths with $PCR$ come with its robustness to multicolinearity in the covariate matrix, $X$. Additionally, PCR performs dimensionality reduction by only selecting the top principal components (in our case, we selected 9) to achieve a parsimonious model.
+We first propose a Partial Component Regression (PCR) model. PCR combines Principal Component Analysis (PCA) with linear regression. Under the assumption that the parameters of interest ($\beta$) are linear—that is, assuming a one-unit increase in a $p$th factor (among those we consider) implies a $\beta_p$ increase in the water flow metric—we leverage this by applying linear regression to the set of orthogonal components computed by PCA[^1]. We used ten-fold cross-validation to select the most optimal number of components, $k^*$; through this process, we chose $k^*=9$. The strengths with $PCR$ come with its robustness to multicolinearity in the covariate matrix, $X$. Additionally, PCR performs dimensionality reduction by only selecting the top principal components (in our case, we selected 9) to achieve a parsimonious model.
 
-[^3]: We first orthogonalize the set of all factors of interest, $X$, through singular-value decomposition, where $X=U\Sigma V'$. We then compute $Z_k=XV_k$, for $k$ number of components where $V_k$ is a subset of $V$ consisting of the first $k$ columns of $V$. Each column of $Z_k$ is then orthogonal to each other, that is, $Z_i'Z_j=0$ $\forall i\neq j$. Then, performing linear regression, we compute the set of linear $\gamma_k$ coefficient parameters (where $\gamma_k$ is of dimension $k$) using $Z_k$ as the new covariate matrix. Solving for $\gamma_k$, $\gamma_k=(Z_k'Z_k)^{-1}Z_k'Y$. $\hat{Y}$ is then computed as $\hat{Y}=Z_k\gamma_k$.
+[^1]: We first orthogonalize the set of all factors of interest, $X$, through singular-value decomposition, where $X=U\Sigma V'$. We then compute $Z_k=XV_k$, for $k$ number of components where $V_k$ is a subset of $V$ consisting of the first $k$ columns of $V$. Each column of $Z_k$ is then orthogonal to each other, that is, $Z_i'Z_j=0$ $\forall i\neq j$. Then, performing linear regression, we compute the set of linear $\gamma_k$ coefficient parameters (where $\gamma_k$ is of dimension $k$) using $Z_k$ as the new covariate matrix. Solving for $\gamma_k$, $\gamma_k=(Z_k'Z_k)^{-1}Z_k'Y$. $\hat{Y}$ is then computed as $\hat{Y}=Z_k\gamma_k$.
 
 The tradeoff that comes with using PCR, however, is its lack of interpretability. Since each component is a linear combination of all individual covariates in $X$, the coefficients derived from our PCR model are not directly interpretable. Additionally, PCR computes and therefore selects components based on the variance of the covariate matrix $X$, as opposed to each factor's relationship with our response variable, the metric of water flow. Hence, the components may not necessarily contribute to predicting the outcome of interest.
 
-Secondly, we propose fitting a Lasso Linear Regression model to accomplish both dimension reduction through variable selection and interpretability. Similar to our PCR model, we will operate on the assume that each of our factors have a linear effect on the water flow metric. However, after standardization on the matrix $X$, Lasso Regression imposes an $L_1$ penalty[^4] to both shrink the estimated coefficients and perform variable selection. Our Lasso Regression model is also suited to handle multicolinearity through the penalization parameter. However, unlike PCR, we can focus on predictive power since there is a direct relationship between the water flow metric and its covariates. Hence, we believe this model to be more interpretable.
+Secondly, we propose fitting a Lasso Linear Regression model to accomplish both dimension reduction through variable selection and interpretability. Similar to our PCR model, we will operate on the assume that each of our factors have a linear effect on the water flow metric. However, after standardization on the matrix $X$, Lasso Regression imposes an $L_1$ penalty[^2] to both shrink the estimated coefficients and perform variable selection. Our Lasso Regression model is also suited to handle multicolinearity through the penalization parameter. However, unlike PCR, we can focus on predictive power since there is a direct relationship between the water flow metric and its covariates. Hence, we believe this model to be more interpretable.
 
-When we introduce the penalty parameter, however, the coefficients on this model will be biased. We sacrifice this bias however for a decrease in the variance of the parameters. As a result, to accurately assess the standard error of each covariate effect, we perform bootstrapping methods to estimate 95\% confidence intervals on $\hat{\beta}$.
+[^2]: Formally, the $L_1$ penalty is computed as a vector norm ($||\cdot||$), where, for a vector $\beta$ with dimension $P$, $||\beta||=\sum_{p=1}^{P}|\beta_p|$.
 
-[^4]: Formally, the $L_1$ penalty is computed as a vector norm ($||\cdot||$), where, for a vector $\beta$ with dimension $P$, $||\beta||=\sum_{p=1}^{P}|\beta_p|$.
+When we introduce the penalty parameter, however, the coefficients on this model will be biased. We sacrifice this bias however for a decrease in the variance of the parameters. As a result, to accurately assess the standard error of each covariate effect, we perform bootstrapping methods to estimate 95% confidence intervals on $\hat{\beta}$.
 
 When we introduce the penalty parameter, however, the coefficients on this model will be biased. We sacrifice this bias however for a decrease in the variance of the parameters. As a result, to accurately assess the standard error of each covariate effect, we perform bootstrapping methods to estimate 95% confidence intervals on $\beta$.
 
 #### Model Evaluation
 
-Both models, LASSO and PCR, were evaluated using in-sample and out-of-sample performance measures. To assess the in-sample fit, the adjusted $R^2$ was used. LASSO achieved an adjusted $R^2$ of [insert value], while PCR achieved an adjusted $R^2$ of [insert value]. This indicates that [LASSO/PCR] provides a better in-sample fit to the data.
+Both models, LASSO and PCR, were evaluated using in-sample and out-of-sample performance measures. To assess the in-sample fit, the adjusted $R^2$ was used. LASSO achieved an adjusted $R^2$ of \[insert value\], while PCR achieved an adjusted $R^2$ of \[insert value\]. This indicates that \[LASSO/PCR\] provides a better in-sample fit to the data.
 
-For out-of-sample prediction performance, the root mean square error (RMSE) was compared between the two models. LASSO had an RMSE of [insert value], while PCR had an RMSE of [insert value]. Although both models yielded similar RMSE values, indicating that either method could be appropriate for analyzing this dataset, LASSO was ultimately chosen due to its interpretability.
+For out-of-sample prediction performance, the root mean square error (RMSE) was compared between the two models. LASSO had an RMSE of \[insert value\], while PCR had an RMSE of \[insert value\]. Although both models yielded similar RMSE values, indicating that either method could be appropriate for analyzing this dataset, LASSO was ultimately chosen due to its interpretability.
 
 PCR reduces dimensionality by grouping variables into components, each explaining a portion of the variability. However, the complexity of interpreting these components—since different variables have varying weights within each component—makes it difficult to determine the individual contribution of each factor to river water flow. In contrast, LASSO simplifies interpretation by shrinking less important variables to zero, leaving only the key factors that directly impact water flow.
-
 
 $$
 \underset{\beta}{\text{arg min}} \sum_{i=1}^n(y_i-x_i'\beta)^2+\lambda\sum_{p=1}^{P}|\beta_p|
 $$
 
-<<<<<<< HEAD
-#### Talk about the assumptions of the model clearly
+#### Talk about the assumptions of the model cleary
 
-=======
 ```{r echo=F, in_sample}
 lasso.covariates = rownames(coef(model))[as.vector(abs(coef(model)) > 0)]
 Y.hat <- predict(model, newx = X)
 R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
 adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-length(lasso.covariates))
 ```
->>>>>>> 44687f716227ed0c5466665bbf840809d994b8cb
+
 ## Results
 
-With our selected model, we estimated the standard errors through bootstrapping[^5] to assess the the 95\% confidence intervals on $\hat{\beta}$. These results are summarized in Table \ref{tab:lasso-coefficients}.
+With our selected model, we estimated the standard errors through bootstrapping[^3] to assess the the 95% confidence intervals on $\hat{\beta}$. These results are summarized in Table \ref{tab:lasso-coefficients}.
 
-[^5]: To estimate the standard errors of $\hat{\beta}$, we first computed $B=10,000$ bootstrap samples from $Y$ (the water flow metric) and our covariate matrix $X$ with replacement of size $K=N=100$ where $N$ was the total number of observations in the data set. Using the optimal penalty parameter, $\lambda^*$, as computed through our cross-validation step previously, we estimated $B$ \# of Lasso Regression models and computed the standard error of each $\hat{\beta_j}$ for $j=1,...,P$ given our $\hat{\beta}$ vector of dimension $P$ through the following computational sequence: (1) For each $\hat{\beta_j}$, compute $\bar{\hat{\beta_j}}=\frac{1}{B}\sum_{b=1}^B\hat{\beta_j}$. (2) $SE(\hat{\beta_j})=\sqrt{\frac{1}{B-1}\sum_{b=1}^B(\hat{\beta_j}-\bar{\hat{\beta_j}})^2}$. (3) We compute the 95\% C.I. as $\left( 2\hat{\beta_j}-\hat{\beta_j}_\text{boot}^{(0.975)}, 2\hat{\beta_j}+\hat{\beta_j}_\text{boot}^{(0.025)}  \right )$, where $\hat{\beta_j}_\text{boot}^{(0.975)}$ and $\hat{\beta_j}_\text{boot}^{(0.025)}$ are the $97.5$th and $2.5$th quantiles of the bootstrapped distributions of $\hat{\beta_j}$, respectively.
+[^3]: To estimate the standard errors of $\hat{\beta}$, we first computed $B=10,000$ bootstrap samples from $Y$ (the water flow metric) and our covariate matrix $X$ with replacement of size $K=N=100$ where $N$ was the total number of observations in the data set. Using the optimal penalty parameter, $\lambda^*$, as computed through our cross-validation step previously, we estimated $B$ \# of Lasso Regression models and computed the standard error of each $\hat{\beta_j}$ for $j=1,...,P$ given our $\hat{\beta}$ vector of dimension $P$ through the following computational sequence: (1) For each $\hat{\beta_j}$, compute $\bar{\hat{\beta_j}}=\frac{1}{B}\sum_{b=1}^B\hat{\beta_j}$. (2) $SE(\hat{\beta_j})=\sqrt{\frac{1}{B-1}\sum_{b=1}^B(\hat{\beta_j}-\bar{\hat{\beta_j}})^2}$. (3) We compute the 95% C.I. as $\left( 2\hat{\beta_j}-\hat{\beta_j}_\text{boot}^{(0.975)}, 2\hat{\beta_j}+\hat{\beta_j}_\text{boot}^{(0.025)}  \right )$, where $\hat{\beta_j}_\text{boot}^{(0.975)}$ and $\hat{\beta_j}_\text{boot}^{(0.025)}$ are the $97.5$th and $2.5$th quantiles of the bootstrapped distributions of $\hat{\beta_j}$, respectively.
 
 ```{r echo=F, bootstrap}
 #Bootstrap
@@ -340,11 +317,12 @@ create_factor_plot(lasso.data$meanPercentDC.significant, "Mean Somewhat\nExcessi
 create_factor_plot(lasso.data$gord.significant, "Global Stream\nOrder")
 ```
 
-We visually summarize the most significant effects[^6] in Figure 2. For an exact fit, $\hat{Y}=Y$, and hence, for a given factor, he closer an observation is to the equilibrium line, we say the more \emph{influence} that factor had in predicting the water flow metric of that observation. Under this pretext, we acknowledge the large variance in the \emph{Mean Somewhat Excessive Drainage Class}. Table \ref{tab:lasso-coefficients} also records the \emph{inclusion frequency}[^7]. This is a metric of robustness to variation in random sampling. Hence, a larger inclusion frequency indicates a stronger dependency with water flow. We use inclusion frequency in part to assess how well these factors explain overall flow. We point out here that \emph{Precipitation Seasonality} has the highest inclusion frequency. 
+We visually summarize the most significant effects[^4] in Figure 2. For an exact fit, $\hat{Y}=Y$, and hence, for a given factor, he closer an observation is to the equilibrium line, we say the more \emph{influence} that factor had in predicting the water flow metric of that observation. Under this pretext, we acknowledge the large variance in the \emph{Mean Somewhat Excessive Drainage Class}. Table \ref{tab:lasso-coefficients} also records the \emph{inclusion frequency}[^5]. This is a metric of robustness to variation in random sampling. Hence, a larger inclusion frequency indicates a stronger dependency with water flow. We use inclusion frequency in part to assess how well these factors explain overall flow. We point out here that \emph{Precipitation Seasonality} has the highest inclusion frequency.
 
-[^6]: For a given $j$th factor, influential effects are classified as all observations in the set, $\{x_{ij} : x_{ij} \leq X_{j}^{(0.05)} \text{ or } x_{ij} \geq X_{j}^{(0.95)}\}, i=1,...,N$. 
-[^7]: For a given $j$th factor, using the bootstrap distributions, we calculate the inclusion frequency as $\frac{1}{B}\sum_{b=1}^B\mathbb{1}(\hat{\beta}_j^{\text{lasso, } b} \neq 0)$.
+[^4]: For a given $j$th factor, influential effects are classified as all observations in the set, $\{x_{ij} : x_{ij} \leq X_{j}^{(0.05)} \text{ or } x_{ij} \geq X_{j}^{(0.95)}\}, i=1,...,N$.
 
-Through the fitted Lasso Regression model, `r round(R.squared*100,2)`\% of the variance in the water flow metric can be explained by our selected covariates. When corrected by the number of factors, we obtain an adjusted R-squared of `r round(adjusted.R.squared*100,2)`\%. We believe that this reflects the parsimonious fit of our selected model. Using leave-one-out-cross validation (LOOCV), we computed an out-of-sample RMSE of `r round(sqrt(mean((Y-lasso.loocv)^2)), 4)`. Thus, on average the out-of-sample prediction is `r round(sqrt(mean((Y-lasso.loocv)^2)), 4)` away from the actual metric of river flow.
+[^5]: For a given $j$th factor, using the bootstrap distributions, we calculate the inclusion frequency as $\frac{1}{B}\sum_{b=1}^B\mathbb{1}(\hat{\beta}_j^{\text{lasso, } b} \neq 0)$.
+
+Through the fitted Lasso Regression model, `r round(R.squared*100,2)`% of the variance in the water flow metric can be explained by our selected covariates. When corrected by the number of factors, we obtain an adjusted R-squared of `r round(adjusted.R.squared*100,2)`%. We believe that this reflects the parsimonious fit of our selected model. Using leave-one-out-cross validation (LOOCV), we computed an out-of-sample RMSE of `r round(sqrt(mean((Y-lasso.loocv)^2)), 4)`. Thus, on average the out-of-sample prediction is `r round(sqrt(mean((Y-lasso.loocv)^2)), 4)` away from the actual metric of river flow.
 
 ## Conclusion
