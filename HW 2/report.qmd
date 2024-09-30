@@ -10,15 +10,14 @@ geometry:
   - right=1in
   - bottom=1in
 ---
-
 ```{r setup, include=FALSE, eval = TRUE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = F)
 library(tidyverse)
 library(pls)
 library(glmnet)
 library(maps)
-library(latex2exp)
 library(knitr)
+library(patchwork)
 
 source("to_latex.R")
 
@@ -30,7 +29,6 @@ metadata <- read_csv("Metadata.csv") %>%
 
 set.seed(536)
 ```
-
 ```{r, include=F, pcr-model}
 Y <- rivers$Metric
 X <- rivers[,colnames(rivers)[2:length(colnames(rivers))]] %>% 
@@ -108,7 +106,6 @@ y.hat.pcr <- Z.k%*%gamma.hat
 # adjusted.R.squared
 # R.squared
 ```
-
 ```{r include=F, cross-validate}
 rivers.pcr <- pcr(Y ~ X, ncomp=optimal_k, scale=F)
 model = cv.glmnet(x=X,y=Y, alpha = 1)
@@ -150,7 +147,11 @@ sqrt(mean((Y-lasso.loocv)^2))
 sqrt(mean((Y-pcr.loocv)^2))
 ```
 
-```{r fig.width=8, fig.cap = "Scatter plot of spatial displacement of each observation of recorded river flow", echo=F, map}
+## Abstract
+
+## Introduction
+
+```{r fig.width=10, fig.cap = "Scatter plot of spatial displacement of each observation of recorded river flow", echo=F, map}
 # Get the map of the US
 us_map <- map_data("state")
 
@@ -164,27 +165,10 @@ ggplot() +
   coord_fixed(1.3) +
   # Add labels and title
   labs(
-       x = TeX("Longitude"), 
-       y = TeX("Latitude")) +
+       x = "Longitude", 
+       y = "Latitude") +
   theme_minimal()
 ```
-
-## 1
-
-After standardizing the numerical covariates, we will fit two variable selection models: We will fit a lasso penalized regression model and a partial component regression (PCR) model. After fitting our models, we will apply a level of k-fold cross-validation to select the best hyperparameters for the model of best fit. After selecting our chosen model, we would examine the covariates that are the largest in absolute value (since the model would fit on scaled vectors) and which are significant.
-
-## 2
-
-We would look at the adjusted $R^2$ statistic as an overall model fit adjusted for the number of covariates included. We would also compare how well our selected covariates from the lasso regression compare to the full model fit by running an ANOVA test of the two models (comparing their f-statistics of significance).
-
-## 3
-
-To assess the predictive power of the model, we would look at the (out-of-sample) RMSE through k-fold cross-validation. To specifically look at the predictive power of the covariates we included, for a model like PCR, we could assess the portion of variance explained by each component as well as the total cumulative explained variance[^1]. For our lasso regression model, in addition to RMSE as assessed through cross-validation and the adjusted $R^2$, we would create ($B$ \# of) bootstraps of the data and fit the lasso model on each bootstrap, checking the frequency at which each covariate is selected[^2]. We can also use bootstrap to obtain confidence intervals for each coefficient as see if these are statisticaly significant.
-
-[^1]: We would assess this using the criteria established by the following expression: $\sum_{j=1}^k\frac{\lambda_j^2}{\sum_{i=1}^p\lambda_i^2}$, where each $\lambda_j$ corresponds to the singular value of the $j$-th principal component.
-
-[^2]: We can assess the selection frequency of each $j$-th covariate by using this bootstrapping method as described through the following expression: $\frac{1}{B}\sum_{b=1}^B\mathbb{1}(\hat{\beta}_j^{\text{lasso, } b} \neq 0)$.
-
 ## Methodology
 
 To reduce potential colinearity between the different factors in the data set and arrive at an optimal parsimonious model, we propose two models to assess the overall water flow of water sources in the Rocky Mountains. In this section, we will discuss both candidate models and how these models can be used to answer the research questions at hand.
@@ -197,7 +181,7 @@ The tradeoff that comes with using PCR, however, is its lack of interpretability
 
 Secondly, we propose fitting a Lasso Linear Regression model to accomplish both dimension reduction through variable selection and interpretability. Similar to our PCR model, we will operate on the assume that each of our factors have a linear effect on the water flow metric. However, after standardization on the matrix $X$, Lasso Regression imposes an $L_1$ penalty[^4] to both shrink the estimated coefficients and perform variable selection. Our Lasso Regression model is also suited to handle multicolinearity through the penalization parameter. However, unlike PCR, we can focus on predictive power since there is a direct relationship between the water flow metric and its covariates. Hence, we believe this model to be more interpretable.
 
-When we introduce the penalty parameter, however, the coefficients on this model will be biased. We sacrifice this bias however for a decrease in the variance of the parameters. As a result, to accurately assess the standard error of each covariate effect, we perform bootstrapping methods to estimate 95\% confidence intervals on $\beta$.
+When we introduce the penalty parameter, however, the coefficients on this model will be biased. We sacrifice this bias however for a decrease in the variance of the parameters. As a result, to accurately assess the standard error of each covariate effect, we perform bootstrapping methods to estimate 95\% confidence intervals on $\hat{\beta}$.
 
 [^4]: Formally, the $L_1$ penalty is computed as a vector norm ($||\cdot||$), where, for a vector $\beta$ with dimension $P$, $||\beta||=\sum_{p=1}^{P}|\beta_p|$.
 
@@ -205,11 +189,19 @@ $$
 \underset{\beta}{\text{arg min}} \sum_{i=1}^n(y_i-x_i'\beta)^2+\lambda\sum_{p=1}^{P}|\beta_p|
 $$
 
+```{r echo=F, in_sample}
+lasso.covariates = rownames(coef(model))[as.vector(abs(coef(model)) > 0)]
+Y.hat <- predict(model, newx = X)
+R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
+adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-length(lasso.covariates))
+```
 ## Results
 
-```{r echo=F, bootstrap}
-lasso.covariates = rownames(coef(model))[as.vector(abs(coef(model)) > 0)]
+With our selected model, we estimated the standard errors through bootstrapping[^5] to assess the the 95\% confidence intervals on $\hat{\beta}$. These results are summarized in Table \ref{tab:lasso-coefficients}.
 
+[^5]: To estimate the standard errors of $\hat{\beta}$, we first computed $B=10,000$ bootstrap samples from $Y$ (the water flow metric) and our covariate matrix $X$ with replacement of size $K=N=100$ where $N$ was the total number of observations in the data set. Using the optimal penalty parameter, $\lambda^*$, as computed through our cross-validation step previously, we estimated $B$ \# of Lasso Regression models and computed the standard error of each $\hat{\beta_j}$ for $j=1,...,P$ given our $\hat{\beta}$ vector of dimension $P$ through the following computational sequence: (1) For each $\hat{\beta_j}$, compute $\bar{\hat{\beta_j}}=\frac{1}{B}\sum_{b=1}^B\hat{\beta_j}$. (2) $SE(\hat{\beta_j})=\sqrt{\frac{1}{B-1}\sum_{b=1}^B(\hat{\beta_j}-\bar{\hat{\beta_j}})^2}$. (3) We compute the 95\% C.I. as $\left( 2\hat{\beta_j}-\hat{\beta_j}_\text{boot}^{(0.975)}, 2\hat{\beta_j}+\hat{\beta_j}_\text{boot}^{(0.025)}  \right )$, where $\hat{\beta_j}_\text{boot}^{(0.975)}$ and $\hat{\beta_j}_\text{boot}^{(0.025)}$ are the $97.5$th and $2.5$th quantiles of the bootstrapped distributions of $\hat{\beta_j}$, respectively.
+
+```{r echo=F, bootstrap}
 #Bootstrap
 B = 10000
 K = 100
@@ -252,51 +244,63 @@ to_latex(beta.ci.centered[covariates.indices,],
         )
 ```
 
-```{r graph, echo=F, fig.width = 8, fig.align='center', fig.width=8, message=F, fig.cap="A comparison of actual and predicted values using Lasso Regression"}
+Table \ref{tab:lasso-coefficients} lists and describes the most significant climate, river network, and human factors that impact overall river flow. Of the factors that are most significant are \emph{Precipitation Seasonality}, \emph{Mean Somewhat Excessive Drainage Class}, and \emph{Global Stream Order}.
+
+```{r graph, echo=F, fig.width = 20, fig.align='center', fig.width=8, message=F, fig.cap="A comparison of actual and predicted values using Lasso Regression"}
+#| fig-label: "fig:significant-effects"
+
 
 bio15 = X[,"bio15"]
+meanPercentDC = X[,"meanPercentDC_SomewhatExcessive"]
+gord = X[,"gord"]
 
 lasso.data <- data.frame(
   y = Y,              
   y.hat = y.hat.lasso,
-  bio15.significant = abs(bio15) >= quantile(bio15, 0.95)
+  bio15.significant = abs(bio15) >= quantile(bio15, 0.95),
+  meanPercentDC.significant = abs(meanPercentDC) >= quantile(meanPercentDC, 0.95),
+  gord.significant = abs(gord) >= quantile(gord, 0.95)
 )
 colnames(lasso.data)[2] <- "y.hat"
 
-lasso.data %>%
-  ggplot(aes(x = y.hat, y = y)) +
-  geom_smooth(method = "lm", 
-              formula = y ~ x,
-              se = FALSE, color = "#111", linetype = "dashed",
-              linewidth=0.5) + 
-  geom_point(aes(color = bio15.significant), size = 2) +
-  scale_color_manual(values = c("FALSE" = "#0072B2", "TRUE" = "#CC6699"),
-                     name = "Significant\nbio15") +           
-  labs(
-    y = expression(Y),                      
-    x = expression(hat(Y)),                    
-    title = "Observed vs. Predicted Values"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5),
-    panel.grid.major = element_line(color = "gray80"),
-    panel.grid.minor = element_blank(),
-    legend.position = "inside",
-    legend.position.inside = c(0.1, 0.85),
-    legend.background = element_rect(color = "black", linewidth = 0.5),
-    legend.box.background = element_rect(color = "black") 
-  )
+create_factor_plot <- function(f, f.name){
+  p <- lasso.data %>%
+    ggplot(aes(x = y.hat, y = y)) +
+    geom_smooth(method = "lm", 
+                formula = y ~ x,
+                se = FALSE, color = "#111", linetype = "dashed",
+                linewidth=0.5) + 
+    geom_point(aes(color = f), size = 1) +
+    scale_color_manual(values = c("FALSE" = "#0072B2", "TRUE" = "#CC6699"),
+                       name = str_c("Influential\n", f.name)) +           
+    labs(
+      y = expression(Y),                      
+      x = expression(hat(Y))
+    ) +
+    theme_minimal() +
+    theme(
+      panel.grid.major = element_line(color = "gray80"),
+      panel.grid.minor = element_blank(),
+      legend.position = "inside",
+      legend.position.inside = c(0.1, 0.825),
+      legend.text = element_text(size = 6),
+      legend.title = element_text(size = 8),
+      legend.background = element_rect(color = "black", linewidth = 0.5),
+      legend.box.background = element_rect(color = "black") 
+    )
+  return(p)
+}
+
+create_factor_plot(lasso.data$bio15.significant, "Precipitation\nSeasonality")+
+create_factor_plot(lasso.data$meanPercentDC.significant, "Mean Somewhat\nExcessive\nDrainage Class")+
+create_factor_plot(lasso.data$gord.significant, "Global Stream\nOrder")
 ```
 
-Make a table with coefficients, description, effects, and confidence interval of bootstrap distributions
+We visually summarize the most significant effects[^6] in Figure 2. For an exact fit, $\hat{Y}=Y$, and hence, for a given factor, he closer an observation is to the equilibrium line, we say the more \emph{influence} that factor had in predicting the water flow metric of that observation. Under this pretext, we acknowledge the large variance in the \emph{Mean Somewhat Excessive Drainage Class}. Table \ref{tab:lasso-coefficients} also records the \emph{inclusion frequency}[^7]. These are a metric of robustness to variation in random sampling. Hence, a larger inclusion frequency indicates a stronger dependency with water flow. We use inclusion frequency in part to assess how well these factors explain overall flow. We point out here that \emph{Precipitation Seasonality} has the highest inclusion frequency. 
 
-```{r echo=F, in_sample}
-Y.hat <- predict(model, newx = X)
-R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
-adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-length(lasso.covariates))
-```
+[^6]: For a given $j$th factor, influential effects are classified as all observations in the set, $\{x_{ij} : x_{ij} \leq X_{j}^{(0.05)} \text{ or } x_{ij} \geq X_{j}^{(0.95)}\}, i=1,...,N$. 
+[^7]: For a given $j$th factor, using the bootstrap distributions, we calculate the inclusion frequency as $\frac{1}{B}\sum_{b=1}^B\mathbb{1}(\hat{\beta}_j^{\text{lasso, } b} \neq 0)$.
 
-For in-sample fit, we computed an adjusted-R\^2 of....
+Through the fitted Lasso Regression model, `r round(R.squared*100,2)`\% of the variance in the water flow metric can be explained by our selected covariates. When corrected by the number of factors, we obtain an adjusted R-squared of `r round(adjusted.R.squared*100,2)`\%. We believe that this reflects the parsimonious fit of our selected model. Using leave-one-out-cross validation (LOOCV), we computed an out-of-sample RMSE of `r round(sqrt(mean((Y-lasso.loocv)^2)), 4)`. Thus, on average the out-of-sample prediction is `r round(sqrt(mean((Y-lasso.loocv)^2)), 4)` away from the actual metric of river flow.
 
-Using LOOCV, we computed an out-of-sample RMSE of....So on average the out-of-sample prediction is \[LOOCV RMSE\] away from the actual measurement of river flow.
+## Conclusion
