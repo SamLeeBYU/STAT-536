@@ -9,6 +9,8 @@ geometry:
   - left=1in
   - right=1in
   - bottom=1in
+  
+abstract: "This study investigates factors influencing river water flow in the U.S. Rocky Mountains, with a focus on climate, human activity, and river network characteristics. Using a data set of multiple rivers in the region, two models were applied to address the risk of multicollinearity: Partial Component Regression (PCR) and Lasso Regression. Lasso Regression was ultimately selected for its interpretability and superior predictive performance, explaining 73.93% of the variance in river flow and an out-of-sample RMSE of 0.5118. Results indicate that \emph{Precipitation Seasonality} and \emph{Global Stream Order} significantly impact river water flow. These findings contribute to understanding water management in the Rocky Mountain region."
 ---
 
 ```{r setup, include=FALSE, eval = TRUE, message = FALSE, warning = FALSE}
@@ -101,12 +103,12 @@ gamma.hat <- solve(crossprod(Z.k, Z.k))%*%t(Z.k)%*%Y
 
 y.hat.pcr <- Z.k%*%gamma.hat
 
-# RMSE <- sqrt(mean((Y-Y.hat)^2))
-# R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
-# adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-optimal_k)
-# 
-# adjusted.R.squared
-# R.squared
+RMSE <- sqrt(mean((Y-Y.hat)^2))
+R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
+adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-optimal_k)
+
+adjusted.R.squared
+R.squared
 ```
 
 ```{r include=F, cross-validate}
@@ -177,7 +179,7 @@ ggplot() +
   theme_minimal()
 ```
 
-The number of covariates in the data is nearly equal to the number of observations, creating a risk of overfitting due to insufficient local information. In such cases, a standard linear regression model tends to overfitting, capturing noise rather than meaningful patterns, and resulting in poor model performance. High-dimensional data can also lead to "false positives," where unrelated variables appear to be associated with the response variable. To address these issues, this analysis applies variable selection and dimensionality reduction techniques. These methods will help identify the most significant factors influencing water flow in rivers throughout the Rocky Mountains.
+The number of covariates in the data is nearly equal to the number of observations, creating a risk of overfitting due to insufficient local information. In such cases, a standard linear regression model tends to overfitting, capturing noise rather than meaningful patterns, and resulting in poor model performance. High-dimensional data can also lead to "false positives," where unrelated variables appear to be associated with the response variable. Multicollinearity is an issue in the data due to the presence of too many covariates. To address these issues, this analysis applies variable selection and dimensionality reduction techniques. These methods will help identify the most significant factors influencing water flow in rivers throughout the Rocky Mountains.
 
 ## Methodology
 
@@ -197,17 +199,15 @@ When we introduce the penalty parameter, however, the coefficients on this model
 
 #### Model Evaluation
 
-Both models, LASSO and PCR, were evaluated using in-sample and out-of-sample performance measures. To assess the in-sample fit, the adjusted $R^2$ was used. LASSO achieved an adjusted $R^2$ of \[insert value\], while PCR achieved an adjusted $R^2$ of \[insert value\]. This indicates that \[LASSO/PCR\] provides a better in-sample fit to the data.
+Both models, LASSO and PCR, were evaluated on their in-sample and out-of-sample performance measures.For in-sample evaluation, the adjusted $R^2$ was used, with LASSO achieving 0.6908 and PCR achieving 0.7041, suggesting that PCR provides a slightly better fit to the data.Out-of-sample prediction performance was assessed using the root mean square error (RMSE), where LASSO recorded an RMSE of 0.5158 and PCR 0.5299. While both models showed similar predictive ability, LASSO was ultimately selected due to its superior interpretability.
 
-For out-of-sample prediction performance, the root mean square error (RMSE) was compared between the two models. LASSO had an RMSE of \[insert value\], while PCR had an RMSE of \[insert value\]. Although both models yielded similar RMSE values, indicating that either method could be appropriate for analyzing this dataset, LASSO was ultimately chosen due to its interpretability.
-
-PCR reduces dimensionality by grouping variables into components, each explaining a portion of the variability. However, the complexity of interpreting these components—since different variables have varying weights within each component—makes it difficult to determine the individual contribution of each factor to river water flow. In contrast, LASSO simplifies interpretation by shrinking less important variables to zero, leaving only the key factors that directly impact water flow.
+PCR reduces dimensionality by grouping variables into components, which explain portions of variability, but the complexity of interpreting these components—where variables contribute with varying weights—makes it challenging to discern the impact of individual variables on river water flow. In contrast, LASSO enhances interpretability by shrinking the coefficients of less important variables to zero, thus retaining only the key variables. The decision to use LASSO was driven by its balance between reasonable predictive performance and straightforward interpretability, making it a more practical choice for this analysis.
 
 $$
 \underset{\beta}{\text{arg min}} \sum_{i=1}^n(y_i-x_i'\beta)^2+\lambda\sum_{p=1}^{P}|\beta_p|
 $$
 
-#### Talk about the assumptions of the model cleary
+The model makes several assumptions, including linearity and independence. It assumes a linear relationship between the predictors and the outcome, which was assessed through exploratory data analysis. The independence assumption holds that the data for each river is collected independently, focusing on one observation at a time. 
 
 ```{r echo=F, in_sample}
 lasso.covariates = rownames(coef(model))[as.vector(abs(coef(model)) > 0)]
