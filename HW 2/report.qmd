@@ -9,8 +9,8 @@ geometry:
   - left=1in
   - right=1in
   - bottom=1in
-  
-abstract: "This study investigates factors influencing river water flow in the U.S. Rocky Mountains, with a focus on climate, human activity, and river network characteristics. Using a data set of multiple rivers in the region, two models were applied to address the risk of multicollinearity: Partial Component Regression (PCR) and Lasso Regression. Lasso Regression was ultimately selected for its interpretability and superior predictive performance, explaining 73.93% of the variance in river flow and an out-of-sample RMSE of 0.5118. Results indicate that \emph{Precipitation Seasonality} and \emph{Global Stream Order} significantly impact river water flow. These findings contribute to understanding water management in the Rocky Mountain region."
+fontsize: 10pt
+abstract: "This study investigates the factors influencing river water flow in the U.S. Rocky Mountains using climate, human activity, and river network characteristics data. We applied Partial Component Regression (PCR) and LASSO Regression to address multicollinearity issues, with LASSO ultimately selected for its balance of predictive performance and interpretability. The LASSO model explained 77.43% of the variance in river flow, with an out-of-sample RMSE of 0.4919. Key factors such as \\emph{Precipitation Seasonality} and \\emph{Global Stream Order} were identified as significant drivers of river water flow. These results have important implications for water management in the region."
 ---
 
 ```{r setup, include=FALSE, eval = TRUE, message = FALSE, warning = FALSE}
@@ -39,6 +39,13 @@ X <- rivers[,colnames(rivers)[2:length(colnames(rivers))]] %>%
   as.matrix()
 X <- scale(X)
 X <- X[, colSums(is.na(X)) == 0]
+
+### Create a correlation matrix and save it
+# Take random sample of highly correlated factors
+n <- 10
+r.sample <- sample(1:ncol(X), n)
+rivers.subset <- cbind(Y, X[,r.sample])
+colnames(rivers.subset)[1] <- "Metric"
 
 svd_X <- svd(X)
 U <- svd_X$u  # Left singular vectors (n x p)
@@ -103,11 +110,11 @@ gamma.hat <- solve(crossprod(Z.k, Z.k))%*%t(Z.k)%*%Y
 
 y.hat.pcr <- Z.k%*%gamma.hat
 
-RMSE <- sqrt(mean((Y-Y.hat)^2))
-R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
-adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-optimal_k)
+RMSE <- sqrt(mean((Y-y.hat.pcr)^2))
+R.squared <- 1-sum((Y-y.hat.pcr)^2)/sum((Y-mean(Y))^2)
+adjusted.R.squared.pcr <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-optimal_k)
 
-adjusted.R.squared
+adjusted.R.squared.pcr
 R.squared
 ```
 
@@ -152,15 +159,9 @@ sqrt(mean((Y-lasso.loocv)^2))
 sqrt(mean((Y-pcr.loocv)^2))
 ```
 
-## Abstract
-
-This study investigates factors influencing river water flow in the U.S. Rocky Mountains, with a focus on climate, human activity, and river network characteristics. Using a data set of multiple rivers in the region, two models were applied to address the risk of multicollinearity: Partial Component Regression (PCR) and Lasso Regression. Lasso Regression was ultimately selected for its interpretability and superior predictive performance, explaining 73.93% of the variance in river flow and an out-of-sample RMSE of 0.5118. Results indicate that \emph{Precipitation Seasonality} and \emph{Global Stream Order} significantly impact river water flow. These findings contribute to understanding water management in the Rocky Mountain region.
-
 ## Introduction
 
-Ecosystems are shaped by various factors, with rivers playing a critical role in distributing water and nutrients essential for plant and animal life. In the U.S. Rocky Mountains, the stability of river flow is particularly important, as it influences soil fertility—a key factor for agriculture that sustains both people and livestock. This analysis examines the factors affecting river flow in the Rocky Mountain Region, focusing on human activity, river network characteristics, and climate influences. The data used in this study were collected from multiple rivers in the region to explore how these variables impact overall water flow.
-
-```{r fig.width=10, fig.cap = "Scatter plot of spatial displacement of each observation of recorded river flow", echo=F, map}
+```{r fig.width=12, fig.cap = "Scatter plot of spatial displacement of each observation of recorded river flow", echo=F, map}
 # Get the map of the US
 us_map <- map_data("state")
 
@@ -179,8 +180,36 @@ ggplot() +
   theme_minimal()
 ```
 
-The number of covariates in the data is nearly equal to the number of observations, creating a risk of overfitting due to insufficient local information. In such cases, a standard linear regression model tends to overfitting, capturing noise rather than meaningful patterns, and resulting in poor model performance. High-dimensional data can also lead to "false positives," where unrelated variables appear to be associated with the response variable. Multicollinearity is an issue in the data due to the presence of too many covariates. To address these issues, this analysis applies variable selection and dimensionality reduction techniques. These methods will help identify the most significant factors influencing water flow in rivers throughout the Rocky Mountains.
+Ecosystems are shaped by various factors, with rivers playing a critical role in distributing water and nutrients essential for plant and animal life. In the U.S. Rocky Mountains (See Figure 1), the stability of river flow is particularly important, as it influences soil fertility—a key factor for agriculture that sustains both people and livestock. This analysis examines the factors affecting river flow in the Rocky Mountain Region, focusing on human activity, river network characteristics, and climate influences. The data used in this study were collected from multiple rivers in the region to explore how these variables impact overall water flow.
 
+The number of covariates in the data is nearly equal to the number of observations, creating a risk of overfitting due to insufficient local information. In such cases, a standard linear regression model tends to overfitting, capturing noise rather than meaningful patterns, and resulting in poor model performance. High-dimensional data can also lead to "false positives," where unrelated variables appear to be associated with the response variable.
+
+:::: {layout="[0.5, 0.5]"}
+
+:::{#firstcol}
+Multicollinearity (see Figure 2) is an issue in the data due to the presence of too many covariates. When multicolinearity is present, the standard errors on our coefficient estimates will tend to be unreliable and hence, the model will have poor generalizability. This issue, combined with the high-dimensional nature of the dataset, necessitates more advanced techniques for model selection and dimensionality reduction such as variable selection and dimensionality reduction techniques. These methods will help identify the most significant factors influencing water flow in rivers throughout the Rocky Mountains.
+:::
+:::{#secondcol}
+```{r correlation, echo=F, fig.cap="Figure 2: Correlation matrix of response variable (Metric) and 10 other randomly selected covariates"}
+# Take random sample of highly correlated factors
+n <- 10
+r.sample <- sample(1:ncol(X), n)
+while(max(sapply(colnames(X[,r.sample]), str_count)) > 8){
+  r.sample <- sample(1:ncol(X), n)
+}
+
+  
+rivers.subset <- cbind(Y, X[,r.sample])
+colnames(rivers.subset)[1] <- "Metric"
+
+heatmap(cor(rivers.subset, use = "complete.obs"),
+        col = colorRampPalette(c("#21AECF", "white", "#CC093E"))(256),
+        Rowv = NA, Colv = NA,
+        margins = c(5, 5),
+        scale = "none")
+```
+:::
+::::
 ## Methodology
 
 To reduce potential colinearity between the different factors in the data set and arrive at an optimal parsimonious model, we propose two models to assess the overall water flow of water sources in the Rocky Mountains. In this section, we will discuss both candidate models and how these models can be used to answer the research questions at hand.
@@ -191,23 +220,11 @@ We first propose a Partial Component Regression (PCR) model. PCR combines Princi
 
 The tradeoff that comes with using PCR, however, is its lack of interpretability. Since each component is a linear combination of all individual covariates in $X$, the coefficients derived from our PCR model are not directly interpretable. Additionally, PCR computes and therefore selects components based on the variance of the covariate matrix $X$, as opposed to each factor's relationship with our response variable, the metric of water flow. Hence, the components may not necessarily contribute to predicting the outcome of interest.
 
-Secondly, we propose fitting a Lasso Linear Regression model to accomplish both dimension reduction through variable selection and interpretability. Similar to our PCR model, we will operate on the assumption that each of our factors have a linear effect on the water flow metric. However, after standardization on the matrix $X$, Lasso Regression imposes an $L_1$ penalty[^2] to both shrink the estimated coefficients and perform variable selection. Our Lasso Regression model is also suited to handle multicolinearity through the penalization parameter. However, unlike PCR, we can focus on predictive power since there is a direct relationship between the water flow metric and its covariates. Hence, we believe this model to be more interpretable.
+Secondly, we propose fitting a LASSO Linear Regression model to accomplish both dimension reduction through variable selection and interpretability. Similar to our PCR model, we will operate on the assumption that each of our factors have a linear effect on the water flow metric. However, after standardization on the matrix $X$, LASSO Regression imposes an $L_1$ penalty[^2] to both shrink the estimated coefficients and perform variable selection. Our LASSO Regression model is also suited to handle multicolinearity through the penalization parameter. However, unlike PCR, we can focus on predictive power since there is a direct relationship between the water flow metric and its covariates. Hence, we believe this model to be more interpretable.
 
 [^2]: Formally, the $L_1$ penalty is computed as a vector norm ($||\cdot||$), where, for a vector $\beta$ with dimension $P$, $||\beta||=\sum_{p=1}^{P}|\beta_p|$.
 
 When we introduce the penalty parameter, however, the coefficients on this model will be biased. We sacrifice this bias however for a decrease in the variance of the parameters. As a result, to accurately assess the standard error of each covariate effect, we perform bootstrapping methods to estimate 95% confidence intervals on $\hat{\beta}$.
-
-#### Model Evaluation
-
-Both models, LASSO and PCR, were evaluated on their in-sample and out-of-sample performance measures.For in-sample evaluation, the adjusted $R^2$ was used, with LASSO achieving 0.6908 and PCR achieving 0.7041, suggesting that PCR provides a slightly better fit to the data.Out-of-sample prediction performance was assessed using the root mean square error (RMSE), where LASSO recorded an RMSE of 0.5158 and PCR 0.5299. While both models showed similar predictive ability, LASSO was ultimately selected due to its superior interpretability.
-
-PCR reduces dimensionality by grouping variables into components, which explain portions of variability, but the complexity of interpreting these components—where variables contribute with varying weights—makes it challenging to discern the impact of individual variables on river water flow. In contrast, LASSO enhances interpretability by shrinking the coefficients of less important variables to zero, thus retaining only the key variables. The decision to use LASSO was driven by its balance between reasonable predictive performance and straightforward interpretability, making it a more practical choice for this analysis.
-
-$$
-\underset{\beta}{\text{arg min}} \sum_{i=1}^n(y_i-x_i'\beta)^2+\lambda\sum_{p=1}^{P}|\beta_p|
-$$
-
-The model makes several assumptions, including linearity and independence. It assumes a linear relationship between the predictors and the outcome, which was assessed through exploratory data analysis. The independence assumption holds that the data for each river is collected independently, focusing on one observation at a time. 
 
 ```{r echo=F, in_sample}
 lasso.covariates = rownames(coef(model))[as.vector(abs(coef(model)) > 0)]
@@ -216,11 +233,28 @@ R.squared <- 1-sum((Y-Y.hat)^2)/sum((Y-mean(Y))^2)
 adjusted.R.squared <- 1 - (1-R.squared)*(length(Y)-1)/(length(Y)-length(lasso.covariates))
 ```
 
+#### Model Evaluation
+
+Both models, LASSO and PCR, were evaluated on their in-sample and out-of-sample performance measures.For in-sample evaluation, the adjusted $R^2$ was used, with LASSO achieving `r round(adjusted.R.squared, 4)` and PCR achieving `r round(adjusted.R.squared.pcr, 4)`, suggesting that LASSO only provides a marginally better fit to the data.Out-of-sample prediction performance was assessed using the root mean square error (RMSE), where LASSO recorded an RMSE of `r round(sqrt(mean((Y-lasso.loocv)^2)), 4)` and PCR `r round(sqrt(mean((Y-pcr.loocv)^2)), 4)`. While both models showed similar predictive ability, LASSO was ultimately selected due to its superior interpretability.
+
+PCR reduces dimensionality by grouping variables into components, which explain portions of variability, but the complexity of interpreting these components—where variables contribute with varying weights—makes it challenging to discern the impact of individual variables on river water flow. In contrast, LASSO enhances interpretability by shrinking the coefficients of less important variables to zero, thus retaining only the key variables. The decision to use LASSO was driven by its balance between reasonable predictive performance and straightforward interpretability, making it a more practical choice for this analysis. Our LASSO model can be represented by the general solution to the minimization problem shown in Equation 1:
+
+$$
+\underset{\beta}{\text{arg min}} \sum_{i=1}^n(y_i-x_i'\beta)^2+\lambda\sum_{p=1}^{P}|\beta_p| \quad (1)
+$$
+$$
+\hat{Y} = X\hat{\beta} + \lambda^*\sum_{p=1}^P|\hat{\beta_p}| \quad (2)
+$$
+
+We make predictions with our model using Equation 2 after finding the solution set to Equation 1, where $\lambda^*$ is the penalty parameter found using 10-fold cross validation. We note that originally, $\beta$ and $\hat{\beta}$ are of dimension $P$, where $P$ is the number of total covariates we include in our model. For a full description of each covariate we refer the interested reader to the data description source [here](https://github.com/SamLeeBYU/STAT-536/tree/main/HW%202/Metadata.csv).
+
+The model makes several assumptions, including linearity and independence. It assumes a linear relationship between the predictors and the outcome, which was assessed through exploratory data analysis. The independence assumption holds that the data for each river is collected independently, focusing on one observation at a time. 
+
 ## Results
 
 With our selected model, we estimated the standard errors through bootstrapping[^3] to assess the the 95% confidence intervals on $\hat{\beta}$. These results are summarized in Table \ref{tab:lasso-coefficients}.
 
-[^3]: To estimate the standard errors of $\hat{\beta}$, we first computed $B=10,000$ bootstrap samples from $Y$ (the water flow metric) and our covariate matrix $X$ with replacement of size $K=N=100$ where $N$ was the total number of observations in the data set. Using the optimal penalty parameter, $\lambda^*$, as computed through our cross-validation step previously, we estimated $B$ \# of Lasso Regression models and computed the standard error of each $\hat{\beta_j}$ for $j=1,...,P$ given our $\hat{\beta}$ vector of dimension $P$ through the following computational sequence: (1) For each $\hat{\beta_j}$, compute $\bar{\hat{\beta_j}}=\frac{1}{B}\sum_{b=1}^B\hat{\beta_j}$. (2) $SE(\hat{\beta_j})=\sqrt{\frac{1}{B-1}\sum_{b=1}^B(\hat{\beta_j}-\bar{\hat{\beta_j}})^2}$. (3) We compute the 95% C.I. as $\left( 2\hat{\beta_j}-\hat{\beta_j}_\text{boot}^{(0.975)}, 2\hat{\beta_j}+\hat{\beta_j}_\text{boot}^{(0.025)}  \right )$, where $\hat{\beta_j}_\text{boot}^{(0.975)}$ and $\hat{\beta_j}_\text{boot}^{(0.025)}$ are the $97.5$th and $2.5$th quantiles of the bootstrapped distributions of $\hat{\beta_j}$, respectively.
+[^3]: To estimate the standard errors of $\hat{\beta}$, we first computed $B=10,000$ bootstrap samples from $Y$ (the water flow metric) and our covariate matrix $X$ with replacement of size $K=N=100$ where $N$ was the total number of observations in the data set. Using the optimal penalty parameter, $\lambda^*$, as computed through our cross-validation step previously, we estimated $B$ \# of LASSO Regression models and computed the standard error of each $\hat{\beta_j}$ for $j=1,...,P$ given our $\hat{\beta}$ vector of dimension $P$ through the following computational sequence: (1) For each $\hat{\beta_j}$, compute $\bar{\hat{\beta_j}}=\frac{1}{B}\sum_{b=1}^B\hat{\beta_j}$. (2) $SE(\hat{\beta_j})=\sqrt{\frac{1}{B-1}\sum_{b=1}^B(\hat{\beta_j}-\bar{\hat{\beta_j}})^2}$. (3) We compute the 95% C.I. as $\left( 2\hat{\beta_j}-\hat{\beta_j}_\text{boot}^{(0.975)}, 2\hat{\beta_j}+\hat{\beta_j}_\text{boot}^{(0.025)}  \right )$, where $\hat{\beta_j}_\text{boot}^{(0.975)}$ and $\hat{\beta_j}_\text{boot}^{(0.025)}$ are the $97.5$th and $2.5$th quantiles of the bootstrapped distributions of $\hat{\beta_j}$, respectively.
 
 ```{r echo=F, bootstrap}
 #Bootstrap
@@ -265,9 +299,9 @@ to_latex(beta.ci.centered[covariates.indices,],
         )
 ```
 
-Table \ref{tab:lasso-coefficients} lists and describes the most significant climate, river network, and human factors that impact overall river flow. Of the factors that are most significant are \emph{Precipitation Seasonality}, \emph{Mean Somewhat Excessive Drainage Class}, and \emph{Global Stream Order}.
+Table \ref{tab:lasso-coefficients} lists and describes the most significant climate, river network, and human factors that impact overall river flow. Of the factors that are most significant are \emph{Precipitation Seasonality}, \emph{Mean Somewhat Excessive Drainage Class}, and \emph{Global Stream Order}. Since these coefficients are linear, they can be interpreted as such: Hence, a one unit increase in the coefficient variation of the (scaled) \emph{Precipitation Seasonality} decreases the water flow by -0.188, on average.
 
-```{r graph, echo=F, fig.width = 20, fig.align='center', fig.width=8, message=F, fig.cap="A comparison of actual and predicted values using Lasso Regression"}
+```{r graph, echo=F, fig.width = 20, fig.align='center', fig.width=8, message=F, fig.cap="A comparison of actual and predicted values using LASSO Regression"}
 #| fig-label: "fig:significant-effects"
 
 
@@ -317,17 +351,17 @@ create_factor_plot(lasso.data$meanPercentDC.significant, "Mean Somewhat\nExcessi
 create_factor_plot(lasso.data$gord.significant, "Global Stream\nOrder")
 ```
 
-We visually summarize the most significant effects[^4] in Figure 2. For an exact fit, $\hat{Y}=Y$, and hence, for a given factor, he closer an observation is to the equilibrium line, we say the more \emph{influence} that factor had in predicting the water flow metric of that observation. Under this pretext, we acknowledge the large variance in the \emph{Mean Somewhat Excessive Drainage Class}. Table \ref{tab:lasso-coefficients} also records the \emph{inclusion frequency}[^5]. This is a metric of robustness to variation in random sampling. Hence, a larger inclusion frequency indicates a stronger dependency with water flow. We use inclusion frequency in part to assess how well these factors explain overall flow. We point out here that \emph{Precipitation Seasonality} has the highest inclusion frequency.
+We visually summarize the most significant effects[^4] in Figure 3. For an exact fit, $\hat{Y}=Y$, and hence, for a given factor, he closer an observation is to the equilibrium line, we say the more \emph{influence} that factor had in predicting the water flow metric of that observation. Under this pretext, we acknowledge the large variance in the \emph{Mean Somewhat Excessive Drainage Class}. While several factors may be confounding a single observation, given that the factors above are statistically significant, it is likely that the observations close to the 45-degree line are well predicted by these influential factors. Table \ref{tab:lasso-coefficients} also records the \emph{inclusion frequency}[^5]. This is a metric of robustness to variation in random sampling. Hence, a larger inclusion frequency indicates a stronger dependency with water flow. We use inclusion frequency in part to assess how well these factors explain overall flow. We point out here that \emph{Precipitation Seasonality} has the highest inclusion frequency.
 
 [^4]: For a given $j$th factor, influential effects are classified as all observations in the set, $\{x_{ij} : x_{ij} \leq X_{j}^{(0.05)} \text{ or } x_{ij} \geq X_{j}^{(0.95)}\}, i=1,...,N$.
 
 [^5]: For a given $j$th factor, using the bootstrap distributions, we calculate the inclusion frequency as $\frac{1}{B}\sum_{b=1}^B\mathbb{1}(\hat{\beta}_j^{\text{lasso, } b} \neq 0)$.
 
-Through the fitted Lasso Regression model, `r round(R.squared*100,2)`% of the variance in the water flow metric can be explained by our selected covariates. When corrected by the number of factors, we obtain an adjusted R-squared of `r round(adjusted.R.squared*100,2)`%. We believe that this reflects the parsimonious fit of our selected model. Using leave-one-out-cross validation (LOOCV), we computed an out-of-sample RMSE of `r round(sqrt(mean((Y-lasso.loocv)^2)), 4)`. Thus, on average the out-of-sample prediction is `r round(sqrt(mean((Y-lasso.loocv)^2)), 4)` away from the actual metric of river flow.
+Through the fitted LASSO Regression model, `r round(R.squared*100,2)`% of the variance in the water flow metric can be explained by our selected covariates. When corrected by the number of factors, we obtain an adjusted R-squared of `r round(adjusted.R.squared*100,2)`%. We believe that this reflects the parsimonious fit of our selected model. Using leave-one-out-cross validation (LOOCV), we computed an out-of-sample RMSE of `r round(sqrt(mean((Y-lasso.loocv)^2)), 4)`. Thus, on average the out-of-sample prediction is `r round(sqrt(mean((Y-lasso.loocv)^2)), 4)` away from the actual metric of river flow.
 
 ## Conclusion
 
-The goals of this study were to model the factors that influence river water flow in the U.S. Rocky Mountains, accounting for potential multicollinearity in the data set. Two candidate models were proposed—PCR and Lasso Regression—to handle the high-dimensional data. While PCR effectively reduces dimensionality, Lasso was chosen for its clearer interpretability and ability to select significant covariates. The Lasso model revealed key factors like \emph{Precipitation Seasonality} and \emph{Global Stream Order} as significant drivers of water flow. Despite the model's utility, limitations include the bias introduced by Lasso's penalty parameter and the potential for over-simplification of complex environmental interactions. We also acknowledge the model's shortcomings when it comes to spatial correlation in the data structure. Future studies could address this spatial correlation and investigate non-linear models or explore the effects of additional ecological and anthropocentric variables. These next steps would enhance our understanding of water flow dynamics in the Rocky Mountain region and improve water management strategies.
+The goals of this study were to model the factors that influence river water flow in the U.S. Rocky Mountains, accounting for potential multicollinearity in the data set. Two candidate models were proposed—PCR and LASSO Regression—to handle the high-dimensional data. While PCR effectively reduces dimensionality, LASSO was chosen for its clearer interpretability and ability to select significant covariates. The LASSO model revealed key factors like \emph{Precipitation Seasonality} and \emph{Global Stream Order} as significant drivers of water flow. Despite the model's utility, limitations include the bias introduced by LASSO's penalty parameter and the potential for over-simplification of complex environmental interactions. We also acknowledge the model's shortcomings when it comes to spatial correlation (see Figure 1) in the data structure. Future studies could address this spatial correlation and investigate non-linear models or explore the effects of additional ecological and anthropocentric variables. These next steps would enhance our understanding of water flow dynamics in the Rocky Mountain region and improve water management strategies.
 
 ## Teamwork
 
