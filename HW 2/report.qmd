@@ -11,6 +11,14 @@ geometry:
   - bottom=1in
 fontsize: 10pt
 abstract: "This study investigates the factors influencing river water flow in the U.S. Rocky Mountains using climate, human activity, and river network characteristics data. We applied Partial Component Regression (PCR) and LASSO Regression to address multicollinearity issues, with LASSO ultimately selected for its balance of predictive performance and interpretability. The LASSO model explained 77.43% of the variance in river flow, with an out-of-sample RMSE of 0.4919. Key factors such as \\emph{Precipitation Seasonality} and \\emph{Global Stream Order} were identified as significant drivers of river water flow. These results have important implications for water management in the region."
+header-includes:
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyfoot[C]{Sam Lee and Patric Platts, MS in Statistics at Brigham Young University}
+  - \fancyfoot[R]{\thepage}
+  - \fancyhead{}
+  - \renewcommand{\headrulewidth}{0pt}
+  - \renewcommand{\footrulewidth}{0pt}
 ---
 
 ```{r setup, include=FALSE, eval = TRUE, message = FALSE, warning = FALSE}
