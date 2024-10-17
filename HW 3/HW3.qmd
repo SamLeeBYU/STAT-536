@@ -1,0 +1,314 @@
+---
+title: "Case Study 3"
+author: "Sam Lee, Ty Hawkes"
+subtitle: "Elementrary Education"
+format: pdf
+geometry: 
+  - top=1in
+  - left=1in
+  - right=1in
+  - bottom=1in
+fontsize: 10pt
+abstract: "This study examines the determinants of standardized test performance across California school districts, using a comprehensive dataset that includes key socioeconomic variables such as district income, percentage of English learners, and computer availability. We employ two modeling approaches: a multiple linear regression with a quadratic term for income to capture non-linear effects, and a generalized additive model (GAM) to allow for flexible functional forms. While both models demonstrate strong predictive performance, the linear regression is favored for its interpretability and parsimony. Our analysis highlights a significant negative impact of English learner concentration on test scores and provides robust evidence of diminishing returns to income on academic performance."
+header-includes:
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyfoot[C]{Sam Lee and Ty Hawkes, MS in Statistics at Brigham Young University}
+  - \fancyfoot[R]{\thepage}
+  - \fancyhead{}
+  - \renewcommand{\headrulewidth}{0pt}
+  - \renewcommand{\footrulewidth}{0pt}
+---
+
+```{r include=F, setup}
+set.seed(536)
+
+library(patchwork)
+library(knitr)
+library(ggfortify)
+library(car)
+library(forecast)
+
+source("lasso.R")
+source("partial-regression.R")
+source("linear-model.R")
+source("locallinear.R")
+
+#This runs the hyperparameter testing for GAM. This takes about 3-5 minutes
+#to complete
+source("gam.R") 
+
+source("compare.R")
+```
+
+## Introduction
+::: {layout="[0.5, 0.5]"}
+::: {#firstcol}
+Research shows that strong academic performance during a child's elementary school years is a strong predictor of their successes later in life. Understanding which things are related to a student's academic performance in elementary school can help educators, administrators, and government leaders make informed decisions that positively affect rising generations. In this analysis, we hope to inform school officials and policy makers about elementary test scores and the factors that may affect them. We will study the state-wide standardized test scores of various school districts in California and examine several factors associated with an increase or decrease in overall test scores.
+:::
+::: {#secondcol}
+```{r income-plot, echo=F, fig.align='center', fig.cap="Non-linear Relationship between Income and Score"}
+#| label: fig-income
+
+income.partialled.out <- partial.out(covariates$X, covariates$Y, c("Income", "Income.squared"))
+
+income.x <- income.partialled.out$X[,1]
+income.y <- income.partialled.out$Y
+
+income.lm <- lm(income.partialled.out$Y ~ income.partialled.out$X)
+
+ggplot(mapping = aes(x = income.x, y = income.y)) +
+  geom_point(color = "#4F4feb", size=0.5) +
+  
+  geom_smooth(method = "lm", formula = y ~ x, aes(linetype = "Linear", color = "Linear"), se=F, linewidth=0.5, color="#222") +
+
+  geom_smooth(method = "lm", formula = y ~ x + I(x^2), aes(linetype = "Quadratic", color = "Quadratic"), se=F, linewidth=0.5, color="#222") +
+  
+  labs(
+    x = "Income*",
+    y = "Score*",
+    linetype = "Model", 
+    color = "Model" 
+  ) +
+
+  scale_linetype_manual(values = c("Quadratic" = "solid", "Linear" = "dashed")) +
+  
+  theme_minimal(base_size = 10) +
+  theme(
+      legend.position = "inside",
+      legend.position.inside = c(0.1, 0.825),
+      legend.text = element_text(size = 6),
+      legend.title = element_text(size = 8),
+      legend.background = element_rect(color = "black", linewidth = 0.5),
+      legend.box.background = element_rect(color = "black") 
+  )
+```
+:::
+:::
+After conducting an exploratory data analysis, we found that there are two potential issues that could affect our primary analysis. Some of the factors in this study, like the district average income and the percentage of students who qualify for reduced-price lunch, are closely related to each other. If ignored, it can be difficult to determine the relationship between these factors and test scores. To avoid this, we will run tests to evaluate the severity of the issue, and remove factors if they pose a big enough problem. In addition to this, district average income appears to have a non-linear[^0] (See @fig-income) relationship with test scores. This reduces the accuracy of our results if not accounted for. To solve this issue, we will add another factor to our analysis that will improve our model accuracy and provide additional insight, at the expense of some interpretability.
+
+[^0]: We visually model the relationship between \emph{Income} and \emph{Score} by partialling out the regressor (Income) and the regressand (Score). Thus, we compute \emph{Income*} as $Income - Z( (Z'Z)^{-1}Z'Income)$, where $Z$ are the set of covariates excluding \emph{Income}; the set of covariates are an $n\times(k-p)$ matrix, where $p$ is the number of covariates that are "partialled out" (the \emph{Income} in this case). Similarly, we compute \emph{Score} as $Score - Z( (Z'Z)^{-1}Z'Score$. Hence, @fig-income represents the non-linear effect that income has on Score, holding all else constant. Note that in \emph{Income} represents the scaled \emph{Income}.
+
+## Methodology
+
+We first fit a LASSO regression model with a second-degree polynomial term included for \emph{Income} to assess variable selection. Through this process, we eliminated using \emph{STratio} (student-to-teacher ratio) as a predictor as the LASSO model shrinked \emph{STratio} to zero. We used the LASSO-selected covariates (all of which have descriptions summarized in Table \ref{tab:model-results}) for all models going forward.
+
+We first propose a multiple linear regression model with an added second degree polynomial term for income. This model is a good candidate because it accounts for the non-linearity present in \emph{Income}. More importantly, it will allow us to evaluate the relationships between test scores and various factors due to its parsimony. Despite these strengths, this model may not be as predictive of student scores as other models. Additionally, this model will only fit well if the relationship between test scores and income is quadratic and the other relationships between the factors and \emph{Score} holds linearly.
+
+Next, we propose a Generalized Additive Model (henceforth known as GAM). This model is a good candidate because it will also account for the non-linearity of the data with smoothing techniques. One advantage to using this model over the linear regression model is that GAM regression can model complex, non-linear relationships that may not be captured well with polynomial expansions, possibly leading to a better fit. Due to this flexibility, however, GAM regression does not provide estimates for the effect size that each factor has on test scores. Still, we are able to accomplish the goals of this analysis with this type of model because GAM regression allows us to determine the statistical significance of these relationships, and visually interpret their direction.
+
+Both models assume independent and Normally distributed data. The linear model imposes stricter assumptions, including homoskedastic variance and a linear relationship between the covariates and response. In contrast, GAM, though non-parametric and flexible in capturing non-linear effects, also assumes homoskedastic errors under the Normality assumption.
+
+#### Model Evaluation
+
+```{r echo=F, insample}
+calculate.r.squared <- function(model, Y, adjusted=F){
+ Y.bar <- mean(Y)
+ TSS <- sum((Y-Y.bar)^2)
+ Y.hat = predict(model)
+ RSS <- sum((Y.hat-Y.bar)^2)
+ r.squared <- RSS/TSS
+ k = length(coef(model))
+ if(adjusted){
+   return(1 - (1-r.squared)*(length(Y)-1)/(length(Y)-k))
+ } else{
+   return(r.squared)
+ }
+}
+
+#LOESS Model
+loc.model <- loess(Y.p ~ X.p, degree=2, span=span.optimal)
+loc.yhat <- predict(loc.model)
+
+#GAM
+X.GAM <- X[,-6]
+Y.GAM <- Y
+gam.model <- gam(gam.optimal)
+
+#Linear
+adjusted.r.squared <- c("Linear" = calculate.r.squared(model.full, Y, adjusted=T), "GAM" = calculate.r.squared(gam.model, Y, adjusted=T)) |> round(4)
+```
+
+We first tuned our GAM model by selecting optimal hyperparameters for each covariate in the model. This process was achieved through a \emph{randomized grid search} over the parameter space of interest. We chose an optimal basis function and the optimal number of "knots" for each factor and cross-validated each selection of hyperparameters through k-fold (with $k=5$) validation. The final form of our GAM model[^1] can be represented by Equation 1:
+
+[^1]: Nomenclature: $\alpha_j, \beta_j, \gamma_j, \delta_j,$ and $\zeta_j$ represent spline coefficients. $\phi_j(\cdot)$ represent thin-plate spline basis functions, and $\psi_j(\cdot)$ represent cubic basis functions.
+
+$$
+y_i = \beta_0 + \sum_{j=1}^{13} \alpha_j \phi_j(\text{Lunch}_{i1}) + \sum_{j=1}^{4} \beta_j \psi_j(\text{Computer}_{i2}) + \sum_{j=1}^{14} \gamma_j \psi_j(\text{Expenditures}_{i3}) +
+$$
+$$
+\sum_{j=1}^{19} \delta_j \phi_j(\text{Income}_{i4}) + \sum_{j=1}^{20} \zeta_j \phi_j(\text{English}_{i5}) + \varepsilon_i \quad (1)
+$$
+$$
+\varepsilon_i \sim \mathcal{N}(0, \sigma^2)
+$$
+
+We evaluated both our GAM regression model and Linear regression model on their in-sample and out-of-sample performance measures. The out-of-sample RMSE for each model was evaluated using k-fold cross-validation (using $k=20$). These results are summarized in Table 3. Both models performed exceptionally well when cross validated.
+
+Our linear regression model had an adjusted R squared value of `r adjusted.r.squared[1]` and our GAM regression model had an adjusted R squared value of `r adjusted.r.squared[2]`. Both models fit the data well, with the linear regression achieving a higher adjusted R-squared due to its parsimonious fit. Because both models showed similar predictability, we ultimately chose to use our linear model in favor of it's superior interpretability. Our linear model can be represented by the solution to the linear combination shown in Equation (2) below.
+
+$$
+y_i = \beta_0 + \beta_1\text{Lunch}_i + \beta_2\text{Computer}_i + \beta_3\text{Expenditure}_i
+$$
+$$
++ \beta_4\text{English}_i + \beta_5 \text{Income}_i + \beta_6 \text{Income}_i^2 + \epsilon_i \quad (2)
+$$
+$$
+\varepsilon_i \overset{iid}{\sim} \mathcal{N}(0, \sigma^2)
+$$
+
+To ensure the validity of our linear regression model, we evaluated its adherence to the fundamental assumptions of linear regression. @fig-avplots assesses the the linearity between the covariates and response with added variable plots. The linearity in each plots provides strong evidence that this assumption is met. The assumption of independence is assumed since the observations were collected without any known time-based or spatial dependencies. The scale-location plot in @fig-ine assesses the homoscedasticity of our residuals. The relatively flat line indicates a constant variance in our errors. Lastly, the Q-Q plot in @fig-ine assesses the assumption that our errors are normally distributed. The flat slope indicates that the errors of our data follow the expected quantile measurements in a normal distribution.
+
+```{r message=F, warning=F, echo = FALSE, fig.width = 12, fig.height = 2, fig.cap="Added variable plots to assess linearity of linear model"}
+#| label: fig-avplots
+avPlots(model.full, lwd = 2, layout = c(1, 6))
+```
+
+```{r message=F, warning=F, echo = FALSE, fig.height = 1.5, fig.width = 12, fig.cap="Model diagnostics to assess linear model assumptions of Equation (1)"}
+#| label: fig-ine
+autoplot(model.full, nrow = 1)
+```
+
+## Results
+
+We present our results in terms of the estimation of Equation 2 by showing the estimates of coefficients on the scaled factors below in Table \ref{tab:model-results}---in other words, each estimated coefficient represents a \emph{relative} effect on \emph{Score} as it relates to the other coefficients. Hence, we compare the magnitude in the coefficients (and their respective standard errors) to assess which factors contribute most significantly.
+
+```{=tex}
+\begin{table}[H]
+\caption{Regression Results}
+\label{tab:model-results}
+\centering
+\fontsize{8}{10}\selectfont
+\begin{tabular}{llcc}
+\toprule
+Variable & Description & Estimate & 95\% Confidence Interval\\
+\midrule
+Intercept &  & 1313.666*** & (1311.872, 1315.46)\\
+Computer & Number of Computers & 2.458* & (0.48, 4.436)\\
+English & Percent of English learners & -10.317*** & (-12.906, -7.728)\\
+Expenditure & Expenditure per student & -1.145 & (-3.121, 0.831)\\
+Income & District average income (in USD 1,000) & 52.568*** & (43.849, 61.287)\\
+\addlinespace
+$\text{Income}^2$ & Income squared & -26.815*** & (-34.285, -19.346)\\
+Lunch & Percent qualifying for reduced-price lunch & -3.777* & (-7.461, -0.094)\\
+\bottomrule
+\end{tabular}
+
+\vspace{1em} % Adds some space between the table and the following text
+
+\footnotesize{
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1 | Multiple R-squared:  0.7907, Adjusted R-squared:  0.7877 \\
+Residual standard error: 18.7 on 413 degrees of freedom | F-statistic: 260.1 on 6 and 413 DF,  p-value: $<2.2\times10^{-16}$
+}
+\end{table}
+```
+
+We return to @fig-income, and address the non-linearities in \emph{Score} with respect to \emph{Income}. We assess whether the quadratic term, $Income^2$ contributes significantly to explaining the variablity in \emph{Score} by running an analysis of variance test (ANOVA) on two models: The first being the empirical model established by Equation 2; The second, like unto the first, omitting the quadratic term. The results of this test are summarized in Table \ref{tab:anova}. We reject the null hypothesis that there is no difference between the two models. In other words, the quadratic term cannot be omitted without sacrificing predictability in \emph{Score}. Since the coefficient on $Income^2$ is significantly negative, this provides significant evidence to suggest that as income increases, the total effect that income has on increasing \emph{Score}, decreases. This supports the \emph{diminishing marginal returns} hypothesis.
+
+```{=tex}
+\begin{table}[H]
+\caption{Analysis of Variance Table}
+\label{tab:anova}
+\centering
+\fontsize{8}{10}\selectfont
+\begin{tabular}{lcccccc}
+\toprule
+ & Res.Df & RSS & Df & Sum of Sq & F & Pr($>$F) \\
+\midrule
+1 & 413 & 144446 & & & & \\
+2 & 414 & 161863 & -1 & -17417 & 49.799 & $7.238\times10^{-12}$ \\
+\bottomrule
+\end{tabular}
+
+\vspace{1em}
+\footnotesize{
+Model 1: $Y = X\beta + \epsilon$ \\
+Model 2: $Y = X_{-Income^2}\beta_{-Income_p^2} + \epsilon$
+}
+\end{table}
+```
+
+To assess predictability, we compare our linear model to GAM (as proposed earlier) and local linear regression with a quadratic term (LOESS). Similar to our tuned GAM model, we tuned our LOESS model through k-fold cross validation[^3]. We performed k-fold cross validation using $k=20$, and summarize the following results below as the out-of-sample predictive fit for each model:
+
+```{r rmse-table, echo=F}
+model.names = c("Linear Model", "LOESS", "GAM")
+names(models.RMSE) <- model.names
+kable(t(models.RMSE), caption="Out of Sample RMSE for each Predictive Model")
+```
+
+We also summarize this visually in @fig-predictions by modeling how well each model predicts using \emph{Income} as a predictor. We visually compare our quadratic model (Equation 2) to LOESS by fitting both on the partialled-out \emph{Income} (since the LOESS was fitted on the dimensionally-reduced covariate matrix) and \emph{Score}. Similarly, we compare our quadratic model to a more flexible GAM model by fitting both to the original scaled \emph{Income} while holding all other covariates constant. We maintain that the quadratic model proves as the best predictive and parsimonious model for this set of data.
+
+```{r echo=F, model-viz, fig.width=12, fig.cap = "Model Prediction on \\emph{Score} with respect to \\emph{Income}"}
+#| label: fig-predictions
+
+
+#GAM
+x.star <- X.GAM
+x.star[, c(1:3, 5)] <- 0
+x.basis <- build_X_test_basis(gam.model, x.star)
+predictions.gam <- cbind(1, x.basis)%*%coef(gam.model)
+
+oo <- order(x.star[,4])
+
+loess.quad <- ggplot(mapping = aes(x = X.p, y = Y.p)) +
+  geom_point(color = "#333", size=0.5) +
+  
+  geom_line(aes(y=loc.yhat, color = "LOESS"), linewidth=0.5) +
+
+  geom_smooth(method = "lm", formula = y ~ x + I(x^2), aes(color = "Quadratic"), se=F, linewidth=0.5) +
+  
+  labs(
+    x = "Income*",
+    y = "Score*",
+    color = "Model" 
+  ) +
+  
+  theme_minimal(base_size = 10) +
+  theme(
+      legend.position = "inside",
+      legend.position.inside = c(0.1, 0.825),
+      legend.text = element_text(size = 6),
+      legend.title = element_text(size = 8),
+      legend.background = element_rect(color = "black", linewidth = 0.5),
+      legend.box.background = element_rect(color = "black") 
+  )
+
+gam.quad <- ggplot(mapping=aes(x=x.star[oo,4], y=predictions.gam[oo]))+
+  geom_line(aes(color="GAM"), linewidth=0.5)+
+  geom_point(aes(y=Y.GAM), color="#333", size=0.5)+
+  geom_smooth(method = "lm", formula = y ~ x + I(x^2), aes(color = "Quadratic"), se=F, linewidth=0.5) +
+  theme_minimal(base_size=10)+
+  theme(
+      legend.position = "inside",
+      legend.position.inside = c(0.1, 0.825),
+      legend.text = element_text(size = 6),
+      legend.title = element_text(size = 8),
+      legend.background = element_rect(color = "black", linewidth = 0.5),
+      legend.box.background = element_rect(color = "black") 
+  )+
+  labs(
+    x="Income (scaled)",
+    y="Score",
+    color="Model"
+  )
+
+loess.quad + gam.quad
+```
+
+[^3]: Our LOESS model was tuned through a randomized grid search algorithm, where we optimized over a space of \emph{span} (the percentile of data used for each 'local' regression) parameters in the set $(0.1, 1)$. Through five-fold cross-validation, we found the optimal span to be `r round(span.optimal, 4)`. We note that since this was optimized over a random selection over the parameter space from $(0.1, 1)$, the theoretical optimal may approach 1. To optimize algorithmic performance, we performed dimension reduction by partialling out the set of regressors ($Z$) on both (scaled) \emph{Income} and \emph{Score}.
+
+We now turn to address the more precarious causal questions we have been presented with. Table \ref{tab:model-results} suggests that the factor, \emph{English}, is significantly negative---in other words, for every one percent increase in the number of English learners within a school district, our model suggests that the average score for that district will decrease by -0.5642 (unscaled), on average. Hence, learning English as a second language may be a barrier to learning if[^4] we do not suspect there are other unobserved covariates influencing the percent of English learners that are \emph{also} correlated with \emph{Score}. Unobserved factors such as school funding, parental education levels, teacher quality, and immigration status are all factors that confound the causal inference assumption. Thus, we caution from making any binding causal claims on this issue.
+
+The number of computers per district is the strongest positive predictor of Score. However, to make causal claims, we recommend a randomized experiment: assign varying numbers of computers to different schools, ensuring the number of computers is not correlated with other factors like teacher quality or socioeconomic status. An intervention group would receive additional computers, while a control group would maintain the current number, isolating the effect of \emph{Computers} on \emph{Score}.
+
+[^4]: For a sufficient sample size $n$, if the endogeneity assumption holds, that is, if we have sufficient evidence to believe that $\mathbb{E}[\varepsilon|X]=0$, then a causal claim may be warranted. However, we caution against this due to confounding factors in the data as we mentioned.
+
+## Conclusion
+
+The goal of this study was to evaluate the relationships between the test scores of elementary students in California and their respective school circumstances, to shed some light on possible administrative methods to improve student learning. We fit a linear regression model to our data and found that there is evidence of diminishing returns on extra curricular activities on student learning. We also found that schools with a higher percentage of students learning English as a second language tend to have a lower average score on the Stanford 9 test. Lastly, we found that among things that a school district can control, a higher number of computers present at a school was correlated with higher test scores.
+
+The biggest shortcoming of this study is it's observational nature. There is no evidence that any of our covariates were assigned randomly, thus we cannot make any causal statements to confidently state whether any of these factors actually have an effect on test scores. The effect of computers on student learning should be further investigated, possibly using randomized controlled experiments to allow for a causal claim that computers actually do boost student learning. Additionally, more studies and/or experiments should be done to better understand how English learners are possibly at a disadvantage academically, and to better understand how we can help level the playing field.
+
+#### Teamwork
+
+Sam spearheaded the hyper parameter tuning, designed the plots, wrote the results section of the paper, and beautified many aspects of the final report. Ty spearheaded the EDA and modeling, verified assumptions, and wrote the introduction, methodology, and conclusion sections of the final report.

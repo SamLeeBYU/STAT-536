@@ -192,12 +192,12 @@ Ecosystems are shaped by various factors, with rivers playing a critical role in
 
 The number of covariates in the data is nearly equal to the number of observations, creating a risk of overfitting due to insufficient local information. In such cases, a standard linear regression model tends to overfitting, capturing noise rather than meaningful patterns, and resulting in poor model performance. High-dimensional data can also lead to "false positives," where unrelated variables appear to be associated with the response variable.
 
-:::: {layout="[0.5, 0.5]"}
-
-:::{#firstcol}
+::: {layout="[0.5, 0.5]"}
+::: {#firstcol}
 Multicollinearity (see Figure 2) is an issue in the data due to the presence of too many covariates. When multicolinearity is present, the standard errors on our coefficient estimates will tend to be unreliable and hence, the model will have poor generalizability. This issue, combined with the high-dimensional nature of the dataset, necessitates more advanced techniques for model selection and dimensionality reduction such as variable selection and dimensionality reduction techniques. These methods will help identify the most significant factors influencing water flow in rivers throughout the Rocky Mountains.
 :::
-:::{#secondcol}
+
+::: {#secondcol}
 ```{r correlation, echo=F, fig.cap="Figure 2: Correlation matrix of response variable (Metric) and 10 other randomly selected covariates"}
 # Take random sample of highly correlated factors
 n <- 10
@@ -217,7 +217,8 @@ heatmap(cor(rivers.subset, use = "complete.obs"),
         scale = "none")
 ```
 :::
-::::
+:::
+
 ## Methodology
 
 To reduce potential colinearity between the different factors in the data set and arrive at an optimal parsimonious model, we propose two models to assess the overall water flow of water sources in the Rocky Mountains. In this section, we will discuss both candidate models and how these models can be used to answer the research questions at hand.
@@ -249,14 +250,14 @@ PCR reduces dimensionality by grouping variables into components, which explain 
 
 $$
 \underset{\beta}{\text{arg min}} \sum_{i=1}^n(y_i-x_i'\beta)^2+\lambda\sum_{p=1}^{P}|\beta_p| \quad (1)
-$$
+$$ 
 $$
 \hat{Y} = X\hat{\beta} + \lambda^*\sum_{p=1}^P|\hat{\beta_p}| \quad (2)
 $$
 
 We make predictions with our model using Equation 2 after finding the solution set to Equation 1, where $\lambda^*$ is the penalty parameter found using 10-fold cross validation. We note that originally, $\beta$ and $\hat{\beta}$ are of dimension $P$, where $P$ is the number of total covariates we include in our model. For a full description of each covariate we refer the interested reader to the data description source [here](https://github.com/SamLeeBYU/STAT-536/tree/main/HW%202/Metadata.csv).
 
-The model makes several assumptions, including linearity and independence. It assumes a linear relationship between the predictors and the outcome, which was assessed through exploratory data analysis. The independence assumption holds that the data for each river is collected independently, focusing on one observation at a time. 
+The model makes several assumptions, including linearity and independence. It assumes a linear relationship between the predictors and the outcome, which was assessed through exploratory data analysis. The independence assumption holds that the data for each river is collected independently, focusing on one observation at a time.
 
 ## Results
 

@@ -1,0 +1,341 @@
+---
+title: "STAT 536 - MIDTERM"
+author: "Sam Lee"
+format: pdf
+subtitle: "Lodgepole Pine Basal Area"
+geometry: 
+  - top=1in
+  - left=1in
+  - right=1in
+  - bottom=1in
+fontsize: 10pt
+abstract: "Lodgepole pines are critical to the Uinta National Forest ecosystem, yet their growth is increasingly threatened by environmental stressors such as pine beetle infestations. This study develops a statistical framework to quantify the environmental determinants of Lodgepole pine basal areas, using data from the Forest Inventory Analysis (FIA) in Northeastern Utah. I employ a combination of LASSO regression and spatial autoregressive models to examine the effects of \\emph{Elevation}, \\emph{Aspect}, \\emph{Slope}, and their interactions on basal area. The LASSO model efficiently performed variable selection, isolating key predictors and simplifying the analysis and was ultimately selected for its performance and interpretability. The analysis revealed that there may be an \\emph{ideal} level of \\emph{Elevation} optimal for Lodgepole pine growth. Finally, I use the evaluated LASSO model to make inferences about observations not yet collected by the FIA. This approach offers a robust, data-driven methodology for understanding and managing forest ecosystems, with implications for targeted conservation strategies."
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyfoot[C]{Sam Lee, MS in Statistics at Brigham Young University}
+  - \fancyfoot[R]{\thepage}
+  - \fancyhead{}
+  - \renewcommand{\headrulewidth}{0pt}
+  - \renewcommand{\footrulewidth}{0pt}
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(maps)
+library(knitr)
+library(patchwork)
+library(kableExtra)
+
+set.seed(536)
+
+trees <- trees.original <- read_csv("LodgepoleInUintas.csv")
+trees[,-ncol(trees)] <- scale(trees[,-ncol(trees)])
+Y = as.matrix(trees$Lodgepole)
+Y.cleaned = matrix(Y[1:114])
+
+source("to_latex.R")
+source("lasso.R")
+lasso.bootstrap()
+source("spatial.R")
+source("models.R")
+```
+
+## Introduction
+
+Lodgepole pines ([\emph{Pinus contorta}](https://en.wikipedia.org/wiki/Pinus_contorta)) are a crucial component of the Uinta National Forest ecosystem, providing essential habitat, stabilizing soil, and contributing to the overall health of the forest. However, their growth and sustainability face significant challenges due to environmental changes and increasing threats from pine beetle infestations. Understanding the factors influencing the basal area of Lodgepole pines is vital for effective forest management and conservation efforts. This study examines the relationship between environmental variables and Lodgepole pine basal areas, using data from the Forest Inventory Analysis (FIA) conducted in Northeastern Utah. The dataset captures various attributes, including geographical coordinates (\emph{Longitude} and \emph{Latitude}), average \emph{Slope} of the terrain, orientation of plots relative to north (\emph{Aspect}), and \emph{Elevation}.
+
+```{r echo=F, fig.cap="Skewness of \\emph{Lodgepole} data", fig.width=12, height=2}
+#| label: fig-skewness
+
+untransformed <- ggplot(mapping=aes(x = Y.cleaned)) +
+  geom_histogram(bins = 30, fill = "#69b3a2", color = "#e9ecef", alpha = 0.8) +
+  labs(
+    x = "Cumulative basal area of lodgepole pines in square feet/acre",
+    y = "Frequency"
+  ) +
+  theme_minimal(base_size = 10) +  # Use a clean minimal theme
+  theme(
+    axis.title.x = element_text(margin = margin(t = 10)),  # Add space around x-axis title
+    axis.title.y = element_text(margin = margin(r = 10)),  # Add space around y-axis title
+    axis.text = element_text(size = 12),  # Size of axis labels
+    panel.grid.major = element_line(color = "#e5e5e5"),  # Light grid lines
+    panel.grid.minor = element_blank()
+  )
+
+transformed <- ggplot(mapping=aes(x = log(Y.cleaned))) +
+  geom_histogram(bins = 30, fill = "#69b3a2", color = "#e9ecef", alpha = 0.8) +
+  labs(
+    x = "Logged cumulative basal area of lodgepole pines in square feet/acre",
+    y = ""
+  ) +
+  theme_minimal(base_size = 10) +  # Use a clean minimal theme
+  theme(
+    axis.title.x = element_text(margin = margin(t = 10)),  # Add space around x-axis title
+    axis.title.y = element_text(margin = margin(r = 10)),  # Add space around y-axis title
+    axis.text = element_text(size = 12),  # Size of axis labels
+    panel.grid.major = element_line(color = "#e5e5e5"),  # Light grid lines
+    panel.grid.minor = element_blank()
+  )
+  
+untransformed + transformed
+```
+
+Preliminary exploration of the data reveals several complexities. The distribution of basal areas is notably skewed (see @fig-skewness), suggesting that standard linear regression models might not adequately capture the underlying patterns. Furthermore, there is evidence of spatial dependencies, where conditions in one plot influence those in neighboring plots, violating the assumption of independent observations. Failing to account for the appropriate dependencies in the data will lead to improper inference on the coefficients. Non-linear interactions between environmental factors, such as \emph{Elevation} and \emph{Aspect}, further complicate the analysis (see @fig-non-linear), indicating that more sophisticated modeling approaches are required. If the model fails to account for non-linearities in the data, then the model runs the risk of being mis-specified, leading to biased coefficients. In short, if the model fails to represent the true relationship between the environmental factors on Lodepole pine growth, the predictions will be inaccurate.
+
+```{r non-linearity, echo=F, fig.width=12, height=2.5, fig.cap="Non-linearities in the data---Scatterplot of each covariate fit with LOESS smoother."}
+#| label: fig-non-linear
+
+trees.original %>% na.omit() %>%
+  pivot_longer(cols=1:(ncol(trees.original)-1), names_to = "Covariate") %>%
+  mutate(
+    Lodgepole = log(Lodgepole)
+  ) %>%
+  ggplot(aes(x = value, y = Lodgepole)) +
+    geom_point() +
+    geom_smooth(se=F, method="loess", formula = "y ~ x", color="#FF99DD")+
+    facet_wrap(~ Covariate, scales = "free_x", nrow=1) +
+    theme_minimal() +
+    labs(y = "log(Lodgepole)")+
+  theme_minimal()
+```
+
+The primary objectives of this study are to identify the key environmental factors that significantly affect Lodgepole pine basal area and to develop models that can predict basal areas in regions where direct measurements are unavailable (see @fig-map). To address the challenges posed by spatial dependencies, non-linearities, and skewed data, the analysis employs a combination of a \emph{least absolute shrinkage and selection operator} (LASSO) regression for variable selection and a spatial autoregressive model to account for spatial correlations. Each method’s strengths and limitations are carefully considered to ensure that the models are both interpretable and predictive. The final models are evaluated based on cross-validation accuracy, and the results offer insights into the environmental conditions conducive to Lodgepole pine growth. Ultimately, this research aims to provide reliable conclusions that can inform forest management strategies, enabling targeted actions to mitigate the impact of environmental stressors and infestations.
+
+```{r map, fig.width=10, fig.height = 2.5, echo=F, fig.cap="Scatter plot of observed lodgepool pine basal areas collected by the FIA in Northeastern Utah"}
+#| label: fig-map
+
+us_map <- map_data("county")
+
+ggplot() +
+  geom_polygon(data = us_map, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
+  geom_jitter(data = trees.original, aes(x = LON, y = LAT, shape = "Collected"), size = 2, width = 0.05, height = 0.05, alpha=0.5) +
+  geom_jitter(data = trees.original[is.na(trees.original$Lodgepole), ], aes(x = LON, y = LAT, shape = "Not Yet Collected"), size = 2, width = 0.01, height = 0.01) +
+  coord_map(xlim = c(min(trees.original$LON) - 0.5, max(trees.original$LON) + 0.5),
+            ylim = c(min(trees.original$LAT) - 0.1, max(trees.original$LAT) + 0.1),
+            clip = "off") +
+  labs(
+       x = "Longitude", 
+       y = "Latitude",
+       shape = "Status") +
+  theme_minimal(base_size = 8)+
+  theme(
+      legend.position = "inside",
+      legend.position.inside = c(0.1, 0.45),
+      legend.background = element_rect(color = "black", linewidth = 0.5),
+      legend.box.background = element_rect(color = "black") 
+  )
+```
+
+## Methodology & Method Evaluation
+
+I first propose a LASSO regression model due to its ability to perform variable selection and regularization simultaneously, effectively managing high-dimensional data: Given the complex nature of Lodgepole pine basal area data, the initial LASSO model was fit using an expanded set of 50 engineered covariates. This set included not only the main environmental effects---\emph{Longitude, Latitude, Slope, Aspect}, and \emph{Elevation}—but also all possible pairwise interactions between these variables and their second-degree polynomial terms. The motivation for this expanded covariate set was to capture potential non-linear relationships and interactions that might be significant in explaining variations in basal area. For instance, interactions such as \emph{Elevation} combined with \emph{Aspect} or \emph{Slope} with \emph{Latitude} could reveal more intricate patterns in \emph{Lodgepole} pine growth that a simple linear model would fail to detect. By including polynomial terms, the model also allowed for the possibility of quadratic effects, such as diminishing or increasing returns to factors like \emph{Elevation} and \emph{Slope}, which may arise in this ecological context. LASSO regression was thus used to narrow down the set of 50 covariates to a more parsimonious fit by zero'ing some of the covariates out. By initially including a comprehensive set of covariates, the LASSO was able to determine which interactions and polynomial terms significantly contributed to explaining the variability in Lodgepole pine basal area. This approach ensures that key environmental drivers are not overlooked due to overly restrictive model assumptions. I define the LASSO model using the transformed distribution of \emph{Lodgepole} values in Equation \ref{eq:lasso}.
+
+```{=tex}
+\begin{equation}
+\label{eq:lasso}
+\begin{aligned}
+\underset{\beta}{\text{arg min}} \bigg\{ \sum_{i=1}^n \bigg[ \log(\text{Lodgepole}_i) - x_i'\beta \bigg]^2 + \lambda \sum_{p=1}^{P} |\beta_p| \bigg\}
+\end{aligned}
+\end{equation}
+```
+
+Hence, we will make predictions with this model using the following general form by back-transforming Equation \ref{eq:lasso-predict}:
+
+```{=tex}
+\begin{equation}
+\label{eq:lasso-predict}
+\begin{aligned}
+\widehat{\text{Lodgepole}} = \exp{\left(X\hat{\beta} + \lambda^*\sum_{p=1}^P|\hat{\beta_p}|\right)}
+\end{aligned}
+\end{equation}
+```
+
+Where $X$ is the the set of 50 factors (consisting of the main effects of \emph{Longitude, Latitude, Aspect, Elevation, } and \emph{Slope} and the engineered combinations between them in addition to the intercept---the covariates that the model didn't zero-out (upon evaluation) are summarized in Table \ref{tab:lasso-coefficients}). I use $\lambda^*$ as the computed optimal penalty parameter as determined by k-fold cross validation[^1]. The ability for LASSO to select (on average) the "best" set of parameters wins favor over other alternatives. Additionally, the LASSO model is relatively computationally simple and conceptually tractable, making the results easier to understand.
+
+[^1]: During my particular cross-validation procedure, I used $k=10$, and estimated an optimal $\lambda$ (selecting the optimal $\lambda$ within one standard error of the minimum cross-validated error for greater parsimony) of `r round(lasso.model$lambda.1se, 4)`.
+
+Secondly, I propose a \emph{hedonic spatial autogressive model} to account for the violation of independent data. This allows for every data point to be influenced by every other data point in the data set \emph{weighted by how close} the data are[^2]. This model is outlined below in Equation \ref{eq:spatial}. The spatial autoregressive model is advantageous for handling spatially correlated data, providing insight into how regional trends and local interactions impact \emph{Lodgepole} pine growth. However, it relies on assumptions about the spatial structure, which could lead to limitations if the true spatial process is more complex than captured by $\Omega$. However, while this model is more parsimonious than the proposed LASSO model as it includes fewer covariates, this model imposes rather strict parametric assumptions for correct model specification. This model imposes a strict assumption on $\varepsilon$ necessary for (MLE) estimation (although Normality may be reasonable given that we perform our analysis on the log-transformed \emph{Lodgepole} values). Additionally, computations required to simultaneously estimate both $\rho$ and $\beta$ are more intensive than the LASSO. 
+
+[^2]: In the spatial regression model, the measure of how close each observation $i$ to another observation $j$ in the data set is accounted for in the $n\times n$ weighting matrix, $\Omega$. Thus, the entry, $\Omega_{[i,j]}$ denotes the spatial weight between data points $i$ and $j$. I first calculate the Haversine distance matrix $D$, using the longitude and latitude distance between all pairs in the data. $\Omega$ is then calculated as $1/D$, where we assign zeros to the diagonal (that is, $\Omega_{[i,i]}=0$) since the distance between any observation and itself is zero.
+
+```{=tex}
+\begin{equation}
+\label{eq:spatial}
+    \begin{aligned}
+        Y = \rho \Omega Y + X\beta+\varepsilon \\
+        Y = (I_n - \rho\Omega)^{-1}(X\beta + \varepsilon)\\
+        \varepsilon \sim \mathcal{N}(0, I_n\sigma^2)\\
+        \implies Y|X \sim \mathcal{MVN}\left((I_n - \rho\Omega)^{-1}X\beta, \sigma^2(I_n-\rho\Omega)^{-1}(I_n-\rho\Omega')^{-1} \right)
+    \end{aligned}
+\end{equation}
+```
+
+Given that the data are skewed, we use the log-transformed values of \emph{Lodgepole} for $Y$. To address non-linearity in each of the covariate structures, polynomial factors of degree 2 are included. Therefore, using Maximum Liklihood Estimation (MLE) to derive estimates for $\rho$ and the seven coefficients of interest, $\beta$, we can use Equation \ref{eq:spatial-predict} to predict new values[^3] for \emph{Lodgepole}.
+
+```{=tex}
+\begin{equation}
+\label{eq:spatial-predict}
+    \begin{aligned}
+        log(\widehat{\text{Lodgepole}_i}) = \hat{\rho}\Omega_{[i, -i]}log(\text{Lodgepole}_{-i}) + \\(\beta_0 + \beta_1\text{Slope}_i + \beta_2\text{Aspect}_i + \beta_3\text{ELEV}_i + \beta_4\text{Slope}^2_i + \beta_5\text{Aspect}^2_i + \beta_6\text{ELEV}^2_i)
+    \end{aligned}
+\end{equation}
+```
+
+[^3]: This is made under the assumption that the weighting matrix, $\Omega$, is sufficiently dense. That is, we have enough observations to begin with in $Y$ to make new predictions. This assumption may be violated if the new observations themselves are related to each other in a way that's not explained through the weighting matrix $\Omega$ (which tells us how related the existing data are to each other and to a new $i$th observation). Note that the notation, $\Omega_{[i, -i]}$ denotes the partition of $\Omega$ consisting of the $i$ row of $\Omega$ and all the cells on that row excluding the cell that belongs to the $i$th column of $\Omega$. Similarly, ${Lodgepole}_{-i}$ denotes all of the observations in the vector \emph{Lodgepole}, excluding the $i$th observation in that vector, that is, the one we're wanting to predict.
+
+For the LASSO regression, k-fold cross-validation[^1] was employed to select the optimal penalty parameter \lambda to balance model complexity and prediction accuracy. Maximum likelihood estimation was used to estimate the optimal parameters of the spatial regression model, but no further cross-validation was needed to estimate any other hyperparameters. Both models were assessed using the adjusted-R-squared for the in-sample fit and a leave-one-out cross-validation (LOOCV) procedure to assess the out of sample predictive power[^6] (using root mean-squared error as the measure of fit). These results are summarized below in @tbl-models.
+
+| Model | Adjusted-R-squared (In-sample) | LOOCV RMSE |
+|:------|------|------|
+|  LASSO   |  `r round(lasso.r.squared, 4)`   | `r round(lasso.rmse, 4)`    |
+| Autoregressive Spatial Model    | `r round(spatial.r.squared, 4)`   | `r round(spatial.rmse, 4)`    |
+
+: Summary of Model Comparisons {#tbl-models}
+
+[^6]: Note that RMSE for both models is on the log-scale of \emph{Lodgepole}.
+
+The autoregressive spatial regression model performs notably better when the adjusted-R-squared is used as the in-sample measure of fit. On this front, we acknowledge the possibly large number of (engineered) covariates in the LASSO model adjusting the R-squared value down. Both models perform similarly when the out-of-sample RMSE is considered, with the LASSO model having the slight edge. Although the spatial regression model addresses the spatial correlation the best, we will prefer the LASSO model for this analysis due to its robustness in its predictive power and interpretability. We also note that since the the spatial model is autoregressive, it requires other observations in the data to make a prediction for a given $i$th observation (refer back to Equation \ref{eq:spatial-predict}). The LASSO model does not require this.
+
+## Results
+
+With the selected model, we estimated the standard errors through bootstrapping[^4] to assess the the 95% confidence intervals on $\hat{\beta}$. The most significant coefficients are summarized in Table \ref{tab:lasso-coefficients} in the Appendix for full coefficient results---\emph{Note that these results use the scaled factors for each covariate, and by implication, the magnitudes of each covariate reflects relative importance to Lodgepole base area}. To assess feature importance, Table \ref{tab:lasso-coefficients} also records the \emph{inclusion frequency}[^5].
+
+```{r elevation, echo=F}
+B <- 1000
+
+X.L <- lasso.run$X.features[,covariates.indices-1]
+
+X.L <- lasso.run$X.features
+X.L[,!(colnames(X.L) %in% c("poly(ELEV, 2)1", "poly(ELEV, 2)2"))] <- 0
+
+bootstrap.predict <- function(X, Y, B, K=nrow(Y.cleaned), lambda=lasso.lambda){
+  elev <- matrix(nrow=B, ncol=nrow(X))
+  for(b in 1:B){
+    observations.b <- sample(1:length(Y), size=K, replace = T)
+    Y.b <- Y[observations.b]
+    X.b <- X[observations.b,]
+    lasso.b <- glmnet(X.b, Y.b, lambda=lambda, alpha=1)
+    
+    #For elevation
+    elev[b,] <- predict(lasso.b, newx=X)
+  }
+  return(elev)
+}
+
+elev.optimal <- bootstrap.predict(X.L, log(Y.cleaned), B, K=114, lambda=lasso.lambda)
+
+elev.estimates <- elev.optimal %>% apply(1, function(r){
+  trees.original[which(r == max(r)), "ELEV"]$ELEV
+})
+
+elev.ci <- quantile(elev.estimates, c(0.025, 0.5, 0.975))
+```
+
+From these results, we infer that \emph{Elevation} is the most influential factor for healthy Lodgepole pines. Given that \emph{Elevation} consists of a two-degree polynomial, the second degree being negative being significant, suggests that there exists a range such that \emph{Lodgepole} pine growth is ideal. The analysis found this elevation to be at approximately[^7] `r elev.ci[2]` (`r elev.ci[1]`, `r elev.ci[3]`) feet.
+
+[^7]: This was calculated using Equation \ref{eq:lasso-predict}. We first hold all other factors besides \emph{Elevation} constant, then, using the fitted $\lambda^*$, we compute $B$ number number of new LASSO regression models using a bootstrap sample, each time estimating the predicted \emph{Lodgepole} with respect to changes in \emph{Elevation}. The resulting interval is the 95\% quantile interval on the bootstrapped prediction distribution.
+
+[^4]: To estimate the standard errors of $\hat{\beta}$, we first computed $B=10,000$ bootstrap samples from $Y$ (the water flow metric) and our covariate matrix $X$ with replacement of size $K=N=114$ where $N$ was the total number of observations in the data set. Using the optimal penalty parameter, $\lambda^*$, as computed through our cross-validation step previously, we estimated $B$ \# of LASSO Regression models and computed the standard error of each $\hat{\beta_j}$ for $j=1,...,P$ given our $\hat{\beta}$ vector of dimension $P$ through the following computational sequence: (1) For each $\hat{\beta_j}$, compute $\bar{\hat{\beta_j}}=\frac{1}{B}\sum_{b=1}^B\hat{\beta_j}$. (2) $SE(\hat{\beta_j})=\sqrt{\frac{1}{B-1}\sum_{b=1}^B(\hat{\beta_j}-\bar{\hat{\beta_j}})^2}$. (3) We compute the 95% C.I. as $\left( 2\hat{\beta_j}-\hat{\beta_j}_\text{boot}^{(0.975)}, 2\hat{\beta_j}-\hat{\beta_j}_\text{boot}^{(0.025)}  \right )$, where $\hat{\beta_j}_\text{boot}^{(0.975)}$ and $\hat{\beta_j}_\text{boot}^{(0.025)}$ are the $97.5$th and $2.5$th quantiles of the bootstrapped distributions of $\hat{\beta_j}$, respectively.
+
+[^5]: This is a metric of robustness to variation in random sampling. Hence, a larger inclusion frequency indicates a stronger relationship with \emph{Lodgepool}. We use inclusion frequency in part to assess how well these factors explain the overall cumulative basal area of lodgepole pines. For a given $j$th factor, using the bootstrap distributions, we calculate the inclusion frequency as $\frac{1}{B}\sum_{b=1}^B\mathbb{1}(\hat{\beta}_j^{\text{lasso, } b} \neq 0)$.
+
+We use Equation \ref{eq:lasso-predict} to make predictions for the remaining `r nrow(trees)-114` observations in the FIA data set. These are summarized visually in @fig-predictions. The predictions are given numerically in @tbl-predictions, with 95\% bootstrapped[^9] confidence intervals given as well.
+
+```{r prediction-map, fig.width=10, fig.height=2.5, echo=F, fig.cap="Predicted lodgepool pine basal areas imposed on the scatter plot of observed lodgepool pine basal areas collected by the FIA in Northeastern Utah"}
+#| label: fig-predictions
+
+missing = trees.original[is.na(trees.original$Lodgepole), ]
+missing$Lodgepole = lasso.predictions
+
+ggplot() +
+  geom_polygon(data = us_map, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
+  geom_jitter(data = trees.original, aes(x = LON, y = LAT, color = Lodgepole, shape = "Collected"), size = 2, width = 0.05, height = 0.05) +
+  geom_jitter(data = missing, aes(x = LON, y = LAT, color = Lodgepole, shape = "Not Yet Collected"), size = 2, width = 0.01, height = 0.01) +
+  coord_map(xlim = c(min(trees.original$LON) - 0.5, max(trees.original$LON) + 0.5),
+            ylim = c(min(trees.original$LAT) - 0.1, max(trees.original$LAT) + 0.1),
+            clip = "off") +
+scale_color_gradientn(colors = c("blue", "purple", "forestgreen", "orange", "red"), 
+                       values = scales::rescale(c(min(trees.original$Lodgepole, na.rm = TRUE), 
+                                                  mean(trees.original$Lodgepole, na.rm = TRUE), 
+                                                  max(trees.original$Lodgepole, na.rm = TRUE))),
+                       guide = guide_colorbar(ticks.colour = "black", barwidth = 1, barheight = 5, frame.colour = NA)) +
+  labs(
+       x = "Longitude", 
+       y = "Latitude",
+       fill = "Lodgepole",
+       shape = "Status") +
+  theme_minimal(base_size = 8)+
+  theme(
+      legend.position = "inside",
+      legend.position.inside = c(0.1, 0.45),
+      legend.background = element_rect(color = "black", linewidth = 0.5),
+      legend.box.background = element_rect(color = "black") 
+  )
+```
+
+## Discussion & Conclusion
+
+This study examined the environmental factors affecting Lodgepole pine basal areas in the Uinta National Forest, using LASSO regression and spatial autoregressive models. The analysis revealed that \emph{Elevation}, \emph{Aspect}, and \emph{Slope} are key determinants of Lodgepole pine growth, along with significant interactions between these variables. Specifically, basal areas tended to decrease at higher elevations, perhaps due to harsher conditions such as lower temperatures and reduced soil moisture. \emph{Slope} effects were complex; while steeper slopes generally reduced basal areas due to potential erosion and drainage issues, interactions with \emph{latitude} showed that these effects varied across different parts of the study area, reflecting localized environmental conditions. While the LASSO model used in the analysis is believed to provide a robust and parsimonious we address its limitations here. The LASSO model, in contrast from the proposed autoregressive spatial model, did not account for spatial autocorrelation, which could lead to biased inferences if local dependencies are significant. Notably, the models relied on log-transformation to approximate normality, though this assumption may not hold perfectly across all observations. Polynomial terms were included to account for non-linearities, but there may still be higher-order effects or interactions not captured by the current models. Future research could benefit from exploring more flexible spatial models or integrating additional environmental variables, guiding targeted forest management strategies that promote the sustainability of Lodgepole pine populations.
+
+\newpage
+
+# Appendix
+
+```{r echo=F, full-table}
+to_latex(beta.ci.centered[covariates.indices,], 
+         lasso.beta[covariates.indices], 
+         beta.importance[covariates.indices],
+         lasso.covariates, get.significant = F
+)
+```
+
+```{r echo=F, full-predictions}
+#| label: tbl-predictions
+
+trees.original[is.na(trees$Lodgepole), "Lodgepole"] <- lasso.predictions
+
+bootstrap.predict <- function(X, Y, B, K=nrow(Y.cleaned), lambda=lasso.lambda, predict.X = NULL){
+  y.hat <- matrix(nrow=B, ncol=nrow(predict.X))
+  for(b in 1:B){
+    observations.b <- sample(1:length(Y), size=K, replace = T)
+    Y.b <- Y[observations.b]
+    X.b <- X[observations.b,]
+    lasso.b <- glmnet(X.b, Y.b, lambda=lambda, alpha=1)
+    
+    y.hat[b,] <- predict(lasso.b, newx=predict.X)
+  }
+  return(y.hat)
+}
+
+y.hat.bootstrap <- bootstrap.predict(X=X.L, log(Y.cleaned), B, K=114, lambda=lasso.lambda, predict.X <- lasso.run$X.full[115:nrow(trees),])
+
+prediction.table <- trees.original[115:nrow(trees.original), ]
+
+y.means <- apply(y.hat.bootstrap, 2, mean)
+
+prediction.table$`Lower Bound` <- exp(log(lasso.predictions) - qt(0.975, 77)*sqrt(1/(B-1)*apply(apply(y.hat.bootstrap, 1, function(y){
+                                                                      (y-y.means)^2
+                                                                    }), 1, sum)))
+prediction.table$`Upper Bound` <- exp(log(lasso.predictions) + qt(0.975, 77)*sqrt(1/(B-1)*apply(apply(y.hat.bootstrap, 1, function(y){
+                                                                      (y-y.means)^2
+                                                                    }), 1, sum)))
+
+prediction.table %>%
+  mutate(across(where(is.numeric), ~ round(., 3))) %>%
+  rename(
+    Longitude = LON,
+    Latitude = LAT,
+    Slope = Slope,
+    Aspect = Aspect,
+    Elevation = ELEV,
+    `Lodgepole Prediction` = Lodgepole
+  ) %>%
+  kable(
+    caption = "Predictions for the remaining FIA Lodgepole pine base areas"
+  ) %>%
+  kable_styling(font_size = 7, position = "center", latex_options = "hold_position")
+```
+
+[^9]: A Monte carlo standard error is applied to obtain 95\% prediction intervals. That is, I use the approximation of $SE(\hat{y_i})\approx\sqrt{\frac{1}{B-1}\sum_{b=1}^B\left( \hat{y}^b_i - \bar{\hat{y}}_i \right)^2}$ for each observation, $y_i$.
