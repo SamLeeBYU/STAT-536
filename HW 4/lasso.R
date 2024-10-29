@@ -1,0 +1,1 @@
+model.logit <- cv.glmnet(X, Y, family = "binomial", alpha = 1)
