@@ -1,0 +1,111 @@
+---
+title: "STAT 536 - Case Study 5"
+author: "Sam Lee, Paul Crowley"
+format: pdf
+subtitle: "\\emph{Credit Card Fraud}"
+geometry: 
+  - top=1in
+  - left=1in
+  - right=1in
+  - bottom=1in
+fontsize: 10pt
+abstract: ""
+header-includes:
+  - \usepackage{amsmath}
+  - \usepackage{algorithm}
+  - \usepackage{algpseudocode}
+  - \usepackage{fancyhdr}
+  - \usepackage{threeparttable}
+  - \pagestyle{fancy}
+  - \fancyfoot[C]{Sam Lee and Paul Crowley, MS in Statistics at Brigham Young University}
+  - \fancyfoot[R]{\thepage}
+  - \fancyhead{}
+  - \renewcommand{\headrulewidth}{0pt}
+  - \renewcommand{\footrulewidth}{0pt}
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(caret)
+library(knitr)
+library(patchwork)
+library(kableExtra)
+library(pROC)
+
+set.seed(536)
+
+source("setup.R")
+source("eda.R")
+show_correlation()
+```
+
+## Introduction
+
+Credit card fraud represents a significant financial burden, with estimated global losses reaching approximately $22 billion annually. In response, credit card companies employ advanced machine learning techniques to identify fraudulent transactions accurately. This report examines a dataset containing around 300,000 credit card transactions, of which only 492 are fraudulent, translating to a prevalence of approximately 0.1\%. Given the rare nature of fraudulent events, our objective is to develop a high-performing model that can detect fraud with precision, minimizing both financial losses and false positives, which could otherwise disrupt legitimate users.
+
+![Correlation matrix between factors used in model specification. Note that all partial components (V1-V28) are, by construction, uncorrelated with each other.](credit-cor.png){#fig-cor}
+
+Several potential challenges in the data may impact our analysis. Given the nature of the data, we will estimate a series of non-parametric binary classification models to predict whether a transcaction is fraudulent. The dataset’s extreme class imbalance raises concerns about model performance, especially with a tendency to misclassify rare fraudulent transactions. Additionally, while principal components enable dimensionality reduction, they also reduce interpretability since they lack direct transactional meaning---while we ignore this caveat in this analysis to prioritize prediction, the lack of interpretability means we are unable to come up with an \emph{a priori} non-linear specification for a parametric model to account for any non-linear trends in the data. Since these trends are unknown, we rely on non-parametric specifications that will better be able to capture unique interactions and non-linear effects. Each Pricinpal component, by construction, is uncorrelated with each other; however, this doesn't negate the possibility of \emph{Amount} being correlated with any of the partial components (See @fig-cor). In our analysis, we will evoke methods that are robust to multicolinearity as well as methods that are resilient to factors that aren't significantly meaningful.
+
+```{r echo=F, width=8, fig.cap="Relationship between transaction amount and likelihood of fraud. Estimates given by a logistic regression model with $n=284,802$. Uncertainty estimates computed as the 95% quantile interval of $B=100$ bootstrapped estimations."}
+#| label: fig-amount
+
+visualize_amount()
+```
+
+A preliminary analysis reveals that as \emph{Amount} increases, fraud is more likely (See @fig-amount). However, we caution as interpreting this result as causal as there may be confounding effects unadjusted for. We also acknowledge the potential non-linearity in \emph{Amount} with respect to the likelihood of fraud (as captured by the uncertainty bounds in @fig-amount).
+
+## Methodology
+
+To identify fraudulent credit card transactions effectively, we consider two robust ensemble methods: Random Forest and Gradient Boosting. Both methods have demonstrated high predictive performance in classification tasks, particularly with imbalanced datasets, making them suitable for our analysis.
+
+1. Using a Random Forest (RF) model will help us eliminate potentially unnecessary factors that would otherwise fit noise in the data through \emph{bagging} (we describe the bagging method, as implemented through a RF model in the Appendex; see Algorithm \ref{alg:random_forest}). The RF model, by construction, will reduce the variance in our predictions. Additionally, since the RF model is an aggregation of decision trees, it will also help model the non-linear trends and complex interactions within our data. However, the extreme class imbalance may lead the RF model to underperform in identifying fraudulent transactions. In order to minimize this bias, we will tune fitting hyperparameters.
+
+2. Similar to the Random Forest Model, Gradient Boosting (GB) uses a series of decision trees---by construction, this will help us model the complex and non-linear relationships in our data. However, in contrast from RF, rather than an \emph{aggregation} of indenpent decision trees fit on a random selection of the data, GB builds trees sequentially, each one focused on correcting the errors of its predecessor. In each iteration, the model minimizes a differentiable loss function by adding a new tree that fits the residuals of the combined ensemble from previous iterations. For binary classification, we specify the Gradient Boosting model as\footnote{Here we define $M$ as the total number of trees, $h^{(m)}(x)$ is the $m$-th decision tree in the sequence, and $\alpha_m$ is the learning rate to control the contribution of each tree.},
+
+\begin{equation}
+  \begin{aligned}
+    \hat{f}_{GB}(x) = \sum_{m=1}^M\alpha_mh^{(m)}(x)
+  \end{aligned}
+\end{equation}
+
+Where each new tree, $h^{(m)}(x)$, is trained\footnote{
+We evaluate how well the new tree fits on the residuals of the current predictions by computing the negative gradient of the loss function, $L(y, \hat{f}(x))=-[y\log \hat{p}(x)+(1-y)\log (1-\hat{p}(x))]$ (that is using the binary cross-entropy loss for binary classification),
+$$
+g_i(m) = -\frac{\partial L(y_i, \hat{f}(x_i))}{\partial \hat{f}(x_i)}\bigg|_{\hat{f}(x)=\hat{f}_{m-1}(x)}
+$$
+These often-called "pseudo-residuals" (the vector of $g_i(m)$) is what the subsequent model is trained on.} on the residuals (error) of the current prediction ($\hat{f}_{m-1}$). Similar to the RF model, the GB model yields high accuracy, models complex patters, and through hyperparameter tuning, allows for control of model complexity. The ability to "learn" from it's mistakes allows it to reduce bias iteratively, although we caution against overfitting a model like GB due to its inherent decision tree structure and sensitivity to model hyperparameters.
+
+\newpage
+
+## Appendix
+
+\begin{algorithm}
+\caption{Random Forest Algorithm}
+\label{alg:random_forest}
+\begin{algorithmic}[1]
+\State \textbf{Input:} Training data with \( n \) samples and \( p \) features
+\State \textbf{Parameters:} Number of trees \( B \), number of features to consider at each split \( m \) (where \( m < p \))
+\For{$b = 1, \dots, B$}
+    \State Draw a bootstrapped sample of size \( n \) from the training data
+    \State Grow a decision tree \( \mathcal{T}_b \) on this sample:
+    \begin{enumerate}
+        \item At each node, randomly select \( m \) features from the \( p \) available features
+        \item Split on the best feature among the \( m \) chosen features (based on some criterion, e.g., Gini impurity for classification)
+        \item Repeat until the stopping criterion is met (e.g., maximum depth or minimum node size)
+    \end{enumerate}
+\EndFor
+\State \textbf{Prediction:} For a new observation \( x_0 \)
+\begin{enumerate}
+    \item For each tree \( b = 1, \dots, B \), obtain a prediction \( \hat{y}^b(x_0) \) by passing \( x_0 \) down tree \( \mathcal{T}_b \)
+    \item For regression: average the predictions:
+    \[
+    \hat{y}(x_0) = \frac{1}{B} \sum_{b=1}^{B} \hat{y}^b(x_0)
+    \]
+    \item For classification: take the majority vote:
+    \[
+    \hat{y}(x_0) = \text{mode}(\hat{y}^1(x_0), \dots, \hat{y}^B(x_0))
+    \]
+\end{enumerate}
+\end{algorithmic}
+\end{algorithm}
