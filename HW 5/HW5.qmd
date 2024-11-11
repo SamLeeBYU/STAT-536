@@ -59,6 +59,8 @@ A preliminary analysis reveals that as \emph{Amount} increases, fraud is more li
 
 To identify fraudulent credit card transactions effectively, we consider two robust ensemble methods: Random Forest and Gradient Boosting. Both methods have demonstrated high predictive performance in classification tasks, particularly with imbalanced datasets, making them suitable for our analysis.
 
+A k-Nearest Neighbors (KNN) model classifies new observations based on the “k” most similar data points in the training set. Since the data contain uncorrelated principal components, similarity is evaluated based on Euclidean distance between observations. KNN is non-parametric, so no distributional assumptions are necessary to model fraud. KNN is sensitive to localities, allowing the model to capture complex, non-linear patterns. However, such sensitivity can cause the model to overfit the data. KNN can also struggle with the class imbalance present in the data, as the majority class tends to dominate nearest neighbors. To address these, we can tune hyperparameters such as the number of neighbors and weighting schemes of these neighbors to improve predictive performance. The KNN model cannot assess a variable's significance or relative importance, but this is of little concern given the inherent barrier to interpretability from dimension reduction.
+
 1. Using a Random Forest (RF) model will help us eliminate potentially unnecessary factors that would otherwise fit noise in the data through \emph{bagging} (we describe the bagging method, as implemented through a RF model in the Appendex; see Algorithm \ref{alg:random_forest}). The RF model, by construction, will reduce the variance in our predictions. Additionally, since the RF model is an aggregation of decision trees, it will also help model the non-linear trends and complex interactions within our data. However, the extreme class imbalance may lead the RF model to underperform in identifying fraudulent transactions. In order to minimize this bias, we will tune fitting hyperparameters.
 
 2. Similar to the Random Forest Model, Gradient Boosting (GB) uses a series of decision trees---by construction, this will help us model the complex and non-linear relationships in our data. However, in contrast from RF, rather than an \emph{aggregation} of indenpent decision trees fit on a random selection of the data, GB builds trees sequentially, each one focused on correcting the errors of its predecessor. In each iteration, the model minimizes a differentiable loss function by adding a new tree that fits the residuals of the combined ensemble from previous iterations. For binary classification, we specify the Gradient Boosting model as\footnote{Here we define $M$ as the total number of trees, $h^{(m)}(x)$ is the $m$-th decision tree in the sequence, and $\alpha_m$ is the learning rate to control the contribution of each tree.},
@@ -106,6 +108,46 @@ These often-called "pseudo-residuals" (the vector of $g_i(m)$) is what the subse
     \[
     \hat{y}(x_0) = \text{mode}(\hat{y}^1(x_0), \dots, \hat{y}^B(x_0))
     \]
+\end{enumerate}
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+\caption{Weighted k-Nearest Neighbors Algorithm}
+\label{alg:weighted_knn}
+\begin{algorithmic}[1]
+\State \textbf{Input:} Training data with \( n \) samples and \( p \) features
+\State \textbf{Parameters:} Number of neighbors \( k \), Distance metric \( d \) (e.g., Euclidean, Mahalanobis), Weighting scheme \( w \) (e.g., uniform, distance-based)
+\For{a new observation \( x_0 \)}
+    \State Calculate the distance \( d(x_0, x_i) \) between \( x_0 \) and each training sample \( x_i \) in the dataset
+    \State Identify the \( k \) nearest neighbors to \( x_0 \) by selecting the \( k \) samples with the smallest distances to \( x_0 \)
+    \State Apply the weighting scheme \( w_i \) to each of the \( k \) neighbors:
+    \begin{enumerate}
+        \item For uniform weights, \( w_i = 1 \)
+        \item For distance-based weights, \( w_i = \frac{1}{d(x_0, x_i)} \)
+    \end{enumerate}
+\EndFor
+\State \textbf{Prediction:} For a new observation \( x_0 \)
+\begin{enumerate}
+    \item \textbf{For classification:}
+    \begin{enumerate}
+        \item Calculate weighted class frequencies:
+            \[
+            F_c = \sum_{i=1}^{k} \left( w_i \cdot \mathbb{I}(y_i = c) \right)
+            \]
+            where \( \mathbb{I}(y_i = c) \) is 1 if \( y_i = c \), and 0 otherwise.
+        \item Predict the class for \( x_0 \) as:
+            \[
+            \hat{y}(x_0) = \arg \max_{c} F_c
+            \]
+    \end{enumerate}
+    \item \textbf{For regression:}
+    \begin{enumerate}
+        \item Calculate the weighted average of the target values of the \( k \) neighbors:
+            \[
+            \hat{y}(x_0) = \frac{\sum_{i=1}^{k} w_i \cdot y_i}{\sum_{i=1}^{k} w_i}
+            \]
+    \end{enumerate}
 \end{enumerate}
 \end{algorithmic}
 \end{algorithm}
