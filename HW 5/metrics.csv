@@ -1,7 +1,7 @@
-"Metric","Random Forest - In-sample","Random Forest - Out-of-sample","XGBoost - In-sample","XGBoost - Out-of-sample"
+"Metric","RF - In-sample","RF - Out-of-sample","XGB - In-sample","XGB - Out-of-sample"
 "Sensitivity",0.9999,0.9997,0.996,0.9952
 "Specificity",1,0.8,0.9834,0.869
-"Positive Predictive Value (PPV)",1,0.9997,0.9836,0.9998
-"Negative Predictive Value (NPV)",0.9999,0.8286,0.9959,0.2364
+"Positive Predictive Value",1,0.9997,0.9836,0.2364
+"Negative Predictive Value",0.9999,0.8286,0.9959,0.9998
 "F2 Score",0.9999196,0.9997069,0.9934813,0.9961346
 "Accuracy",0.9999497,0.9993797,0.989675,0.9950141
