@@ -39,6 +39,10 @@ source("eda.R")
 show_correlation()
 ```
 
+## Abstract
+
+Fraud detection is an important function of banking and serves to protect both the bank and the client. The vast majority of credit card transactions are valid, and this imbalance makes it difficult to detect fraudulent transactions. However, it is still essential to identify real cases of fraud without flagging clients for valid everyday purchases. Using dimension-reduced credit transaction data from the bank, we build a random forest model tuned with optimal hyperparameters and trained on added synthetic fraudulent data to correctly identify real fraudulent transactions 99.9% of the time.
+
 ## Introduction
 
 Credit card fraud represents a significant financial burden, with estimated global losses reaching approximately $22 billion annually. In response, credit card companies employ advanced machine learning techniques to identify fraudulent transactions accurately. This report examines a dataset containing around 300,000 credit card transactions, of which only 492 are fraudulent, translating to a prevalence of approximately 0.1\%. Given the rare nature of fraudulent events, our objective is to develop a high-performing model that can detect fraud with precision, minimizing both financial losses and false positives, which could otherwise disrupt legitimate users.
@@ -131,6 +135,10 @@ The random forest model does an excellent job identifying the fraudulent transac
 
 This model can predict fraud with very high accuracy and emphasizes correctly predicting fraudulent transactions over correctly predicting valid transactions due to the high risks associated with fraud. The model is very complex, but its process is easily visualized, and important variables are also identifiable. 
 
+## Conclusion
+
+The analysis used a random forest model to predict fraud with great success. The model incorporated synthetic minority class data to counteract the drastic class imbalance used tuned hyperparameters to optimize predictive performance without overfitting. Given a fraudulent transaction, the model can identify it as such about 99.9% of the time. Of the 5 new transactions, the model predicted only the third one to be fraud. However, certain shortcomings were observed: Random Forest exhibited lower predictive accuracy given a valid transaction, leading to a higher rate of false positives. These results highlight the trade-off between sensitivity and specificity in imbalanced datasets. Additionally, the limited interpretability of the models could impede actionable insights to prevent fraud. To address these limitations, future work explore anomaly detection approaches to improve specificity and utilize interpretability tools such as SHAP to provide greater transparency.
+
 \newpage
 
 ## Appendix
@@ -161,46 +169,6 @@ This model can predict fraud with very high accuracy and emphasizes correctly pr
     \[
     \hat{y}(x_0) = \text{mode}(\hat{y}^1(x_0), \dots, \hat{y}^B(x_0))
     \]
-\end{enumerate}
-\end{algorithmic}
-\end{algorithm}
-
-\begin{algorithm}[h!]
-\caption{Weighted k-Nearest Neighbors Algorithm}
-\label{alg:weighted_knn}
-\begin{algorithmic}[1]
-\State \textbf{Input:} Training data with \( n \) samples and \( p \) features
-\State \textbf{Parameters:} Number of neighbors \( k \), Distance metric \( d \) (e.g., Euclidean, Mahalanobis), Weighting scheme \( w \) (e.g., uniform, distance-based)
-\For{a new observation \( x_0 \)}
-    \State Calculate the distance \( d(x_0, x_i) \) between \( x_0 \) and each training sample \( x_i \) in the dataset
-    \State Identify the \( k \) nearest neighbors to \( x_0 \) by selecting the \( k \) samples with the smallest distances to \( x_0 \)
-    \State Apply the weighting scheme \( w_i \) to each of the \( k \) neighbors:
-    \begin{enumerate}
-        \item For uniform weights, \( w_i = 1 \)
-        \item For distance-based weights, \( w_i = \frac{1}{d(x_0, x_i)} \)
-    \end{enumerate}
-\EndFor
-\State \textbf{Prediction:} For a new observation \( x_0 \)
-\begin{enumerate}
-    \item \textbf{For classification:}
-    \begin{enumerate}
-        \item Calculate weighted class frequencies:
-            \[
-            F_c = \sum_{i=1}^{k} \left( w_i \cdot \mathbb{I}(y_i = c) \right)
-            \]
-            where \( \mathbb{I}(y_i = c) \) is 1 if \( y_i = c \), and 0 otherwise.
-        \item Predict the class for \( x_0 \) as:
-            \[
-            \hat{y}(x_0) = \arg \max_{c} F_c
-            \]
-    \end{enumerate}
-    \item \textbf{For regression:}
-    \begin{enumerate}
-        \item Calculate the weighted average of the target values of the \( k \) neighbors:
-            \[
-            \hat{y}(x_0) = \frac{\sum_{i=1}^{k} w_i \cdot y_i}{\sum_{i=1}^{k} w_i}
-            \]
-    \end{enumerate}
 \end{enumerate}
 \end{algorithmic}
 \end{algorithm}
