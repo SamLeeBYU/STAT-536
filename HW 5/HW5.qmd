@@ -119,9 +119,13 @@ The random forest model does not operate on any distributional assumptions. The 
 
 ## Results
 
-As an ensemble model, it is not possible to visualize the complete operations of the random forest. However, individual trees used in the ensemble can easily be extracted to demonstrate its iterative process.
+As an ensemble model, it is not possible to visualize the complete operations of the random forest. However, individual trees used in the ensemble can easily be extracted to demonstrate its iterative process. The plot below shows where one such tree split the data with predicted probabilities for validity and fraud at each step.
+
+![Individual Decision Tree Example](tree.png)
 
 The random forest model does not provide interpretable parameters to analyze the impact of each partial component. However, metrics of variable importance and partial dependence plots can still be used to identify the most impactful variables. By permutating each partial component to eliminate any existing relationship with fraud, the decrease in accuracy can be compared to determine which partial components have the greatest effect on fraud. Partial dependence plots demonstrate how the predicted probability of fraud changes as the partial component increases. These plots are given below.
+
+![Variable Importance and Partial Dependence for Most Impactful Components](VarImport.png)
 
 The random forest model does an excellent job identifying the fraudulent transactions. Given a transaction is fraudulent, the model can accurately detect it 99.9% of the time in tested cases. Of the five new transactions for which we do not know whether they are valid or fraudulent, the model predicts only the third one to be fraudulent. Based on the model's sensitivity, it seems very unlikely that any of the other cases are fraudulent.
 
