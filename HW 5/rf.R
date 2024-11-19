@@ -1,6 +1,14 @@
+source("setup.R")
 library(ranger)
 
 credit$Class <- factor(credit$Class, levels=0:1)
+
+#Use a 70-30 train-test split
+
+p <- 0.7
+train.indices <- sample(1:nrow(credit))[1:round(p*nrow(credit))]
+credit.train <- credit[train.indices,]
+credit.test <- credit[-train.indices,]
 
 params <- expand.grid(
   mtry = sample(1:floor(sqrt(ncol(credit))), 5),
@@ -13,14 +21,18 @@ N = 50 #Number of total RF models to select and fit
 random.params <- params[sample(1:nrow(params), N),]
 
 f.scores <- numeric(N)
+
 for(i in 1:N){
-  print(i)
   params.i <- random.params[i,]
   
-  rf.model.i <- ranger(Class ~ ., data = credit, num.trees = params.i$num.trees, mtry = params.i$mtry, min.node.size = params.i$min.node.size,
-                       sample.fraction = params.i, max.depth = params.i,
+  rf.model.i <- ranger(Class ~ ., data = credit.train, num.trees = params.i$num.trees, mtry = params.i$mtry, min.node.size = params.i$min.node.size,
+                       sample.fraction = params.i$sample.fraction, max.depth = params.i$max.depth,
                        importance = "impurity")
-  f.scores[i] <- MLmetrics::FBeta_Score(credit$Class, rf.model$predictions, beta=2)
+  
+  y.hat <- predict(rf.model.i, data=credit.test)$predictions
+  
+  #Out of sample f-beta score
+  f.scores[i] <- MLmetrics::FBeta_Score(credit.test$Class, y.hat, beta=2)
 }
 best.params <- random.params[which(f.scores == max(f.scores)),]
 write.csv(best.params, "rf-best_params.csv")
