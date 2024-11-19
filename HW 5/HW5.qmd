@@ -82,6 +82,33 @@ These often-called "pseudo-residuals" (the vector of $g_i(m)$) is what the subse
 
 In the context of this problem, the criticality of accurately classifying credit card transactions cannot be overstated. Given the consequences, we consider false negative predictions—failing to identify fraudulent transactions—far more severe than false positives. To address this, we prioritize higher sensitivity over specificity, erring on the side of identifying potential fraud at the cost of increased false alarms\footnote{As such, we evaluate our models using the $F_{\beta=2}\text{-Score}$, that is, using $F_\beta=\frac{\left(1+\beta^2\right)TP}{\left(1+\beta^2\right)TP+\beta^2FN+FP}$}, where \emph{TP, FN,} and \emph{FP} represent the number of true positive, false negative, and false positive predictions committed by the model, respectively, where we set $\beta=2$.}.
 
+Both the random forest and gradient boosting models acheived near perfect results during in-sample training with added synthetic minority class data in all performance metrics evaluated, but our primary focus was on the test predictions. The random forest model had very high sensitivity relative to the gradient boosting model, which is perhaps the most important consideration because it is more important to correctly identify fraudulent transactions than incorrectly identify valid transactions. The random forest also achieved much better positive predictive value, indicating that a higher proportion of predicted fraudulent transactions are actually fraudulent. 
+
+Given the reduced dimensions of the data that respect data privacy, interpretability was not much of a consideration in the model selection process. If a highly interpretable model like logistic regression were chosen for this fraud classification task, interpretations could only be made about the principal components rather than the the original variables. Thus, both proposed models, are designed with predictive performance in mind. Ultimately, the random forest model produced more desirable results for test predictions, and this model was chosen to accomplish research objectives.
+
+The random forest model is specified below with hyperparameters selected through a randomized grid search and performance evaluated by F2 score to prioiritize high sensitivity over high specificity.
+
+$$
+\hat{y}(x_0) =
+\begin{cases} 
+1 & \text{if } \frac{1}{B} \sum_{b=1}^B \hat{y}^b(x_0) \geq T, \\
+0 & \text{otherwise.}
+\end{cases}
+
+
+\text{Where:}
+\begin{align*}
+B & = 200 \quad \text{(Number of trees)}, \\
+m & = 4 \quad \text{(Number of features at each split)}, \\
+S & = 1 \quad \text{(Minimum node size)}, \\
+f & = 0.6 \quad \text{(Proportion of samples used for each bootstrap)}, \\
+D & = 15 \quad \text{(Maximum depth of each tree)}, \\
+T & = 0.46 \quad \text{(Probability threshold for classification)}.
+\end{align*}
+$$
+
+The random forest model does not operate on any distributional assumptions. The model results do not depend on any such justifications. All features were kept in the model to maximize predictive performance, but each tree only classifies based on 4 features to ensure unique contributions to the ensemble.
+
 \newpage
 
 ## Appendix
