@@ -89,7 +89,7 @@ In the context of this problem, the criticality of accurately classifying credit
 Both the random forest and gradient boosting models acheived near perfect results during in-sample training with added synthetic minority class data in all performance metrics evaluated, but our primary focus was on the test predictions. The random forest model had very high sensitivity relative to the gradient boosting model, which is perhaps the most important consideration because it is more important to correctly identify fraudulent transactions than incorrectly identify valid transactions. The random forest also achieved much better positive predictive value, indicating that a higher proportion of predicted fraudulent transactions are actually fraudulent. 
 
 ```{r, echo=FALSE}
-metrics_from_csv <- read.csv("combined_metrics_table.csv")
+metrics_from_csv <- read.csv("metrics.csv")
 kable(metrics_from_csv, 
       caption = "Combined Metrics for Random Forest and XGBoost (In-sample and Out-of-sample)", 
       align = "c") %>%
